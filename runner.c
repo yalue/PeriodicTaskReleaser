@@ -5,41 +5,65 @@
 #include <pthread.h>
 
 #include "releaser.h"
+#include "runner.h"
 #include "util.h"
+#include "GPUOp.h"
 
 /**
- * Releases one job on a periodic schedule. 
- * Release period is specified in args->ms.
- * Job id is specified in args->cond.
+ * Runs one job when the condition is notified.
  */
-void * releaser(void *releaser_args) {
+void * runner(void *runner_args) {
   int i;
-  int ms;
   int thread_id;
-  struct timespec ts;
-  struct Releaser_Args *args;
+  int datasize;
+  struct Runner_Args *args;
   pthread_cond_t *cond;
+  pthread_mutex_t *mutex;
   FILE *ostream;
+  struct timespec timeout;
   struct timespec start_time;
+  struct timespec end_time;
 
-  args = (struct Releaser_Args*) releaser_args;
+  args = (struct Runner_Args*) runner_args;
   thread_id = args->thread_id;
-  ms = args->ms;
   cond = args->cond;
+  mutex = args->mutex;
   ostream = args->ostream;
 
-  ts.tv_sec = ms / MS_PER_SEC;
-  ts.tv_nsec = (ms % MS_PER_SEC) * NS_PER_MS;
+  // Initialize GPU
+  init_GPU_Op(0);
+  // Wait for work
   i = 0;
-  while (i < MAX_SIGNALS) {
+  while (i <= MAX_ITERATIONS) {
+    pthread_mutex_lock(mutex);
+    clock_gettime(CLOCK_REALTIME, &timeout);
+    timeout.tv_sec += MAX_WAIT_TIME;
+    pthread_cond_timedwait(cond, mutex, &timeout);
+    if (!args->isActive) {
+      break;
+    }
+    datasize = args->datasize;
     if (clock_gettime(CLOCK_REALTIME, &start_time)) {
       error("Error getting current time");
     }
-    fprintf(ostream, "%lld.%.9ld\tBROADCAST: %3d. (Period %5d ms).\n", (long long) start_time.tv_sec, start_time.tv_nsec, thread_id, ms);
+    fprintf(ostream, "%lld.%.9ld\tACCEPT:    %3d.\n", (long long) start_time.tv_sec,
+        start_time.tv_nsec, i % MAX_SIGNALS);
     fflush(ostream);
-    pthread_cond_broadcast(cond);
-    nanosleep(&ts, NULL);
+
+    // do work here instead of sleeping
+    run_GPU_Op(datasize);
+
+    if (clock_gettime(CLOCK_REALTIME, &end_time)) {
+      error("Error getting current time");
+    }
+    fprintf(ostream, "%lld.%.9ld\tFINISH:    %3d. (Execution %3ld ms).\n", 
+      (long long) end_time.tv_sec, end_time.tv_nsec, i % MAX_SIGNALS, 
+      (long) ((end_time.tv_sec - start_time.tv_sec) * 1e3 +
+      (end_time.tv_nsec - start_time.tv_nsec) * 1e-6));
+    fflush(ostream);
     i++;
+    pthread_mutex_unlock(mutex);
   }
+  finish_GPU_Op();
   pthread_exit(NULL);
 }

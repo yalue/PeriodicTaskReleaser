@@ -1,6 +1,6 @@
 #define MS_PER_SEC 1000
 #define NS_PER_MS 1000000
-#define MAX_SIGNALS 11
+#define MAX_SIGNALS 100
 
 struct Releaser_Args {
   int thread_id;

@@ -4,7 +4,9 @@
 #include <sched.h>
 #include <errno.h>
 
+extern "C" {
 #include "GPUOp.h"
+}
 
 /**
 * CUDA Kernel Device code
@@ -22,8 +24,8 @@ vectorAdd(const float *A, const float *B, float *C, int numElements) {
     }
 }
 
-
-void run_GPU_Op(int numElements, int sync_level) {
+extern "C"
+void init_GPU_Op(int sync_level) {
     /*
     * The sync_level parameter is an integer that indicates the desired level of
     * synchronization used by the GPU driver (values defined below).  The
@@ -46,14 +48,32 @@ void run_GPU_Op(int numElements, int sync_level) {
     // used here to invoke initialization of GPU locking
     cudaFree(0);
 
-    // Error code to check return values for CUDA calls
+}
+
+void finish_GPU_Op() {
+     // Reset the device and return
+    // cudaDeviceReset causes the driver to clean up all state. While
+    // not mandatory in normal operation, it is good practice.  It is also
+    // needed to ensure correct operation when the application is being
+    // profiled. Calling cudaDeviceReset causes all profile data to be
+    // flushed before the application returns
+    cudaError_t err = cudaDeviceReset();
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));
+    }
+}
+
+extern "C"
+void run_GPU_Op(int numElements) {
     cudaError_t err = cudaSuccess;
+    
+    // Stream for the thread's GPU Operations
+    cudaStream_t my_stream;
 
     // create a user defined stream
-    cudaStream_t my_stream;
     cudaStreamCreate(&my_stream);
 
-    size_t size = numElements * sizeof(float); // 16,000,000 bytes
+    size_t size = numElements * sizeof(float);
 
     float *h_A, *h_B, *h_C;
 
@@ -80,10 +100,10 @@ void run_GPU_Op(int numElements, int sync_level) {
     }
 
     // Initialize the host input vectors
-    for (int i = 0; i < numElements; ++i) {
-        h_A[i] = rand()/(float)RAND_MAX;
-        h_B[i] = rand()/(float)RAND_MAX;
-    }
+    // for (int i = 0; i < numElements; ++i) {
+    //     h_A[i] = rand()/(float)RAND_MAX;
+    //     h_B[i] = rand()/(float)RAND_MAX;
+    // }
 
     // Allocate the device input vector A
     float *d_A = NULL;
@@ -136,7 +156,7 @@ void run_GPU_Op(int numElements, int sync_level) {
 
     // Launch the Vector Add CUDA Kernel
     int threadsPerBlock = 256;
-    int blocksPerGrid =(numElements + threadsPerBlock - 1) / threadsPerBlock;
+    int blocksPerGrid = (numElements + threadsPerBlock - 1) / threadsPerBlock;
 
     // lock of EE is handled in wrapper for cudaLaunch()
     vectorAdd<<<blocksPerGrid, threadsPerBlock, 0, my_stream>>>(d_A, d_B, d_C, numElements);
@@ -190,16 +210,5 @@ void run_GPU_Op(int numElements, int sync_level) {
     // clean up the user allocated stream
     cudaStreamSynchronize(my_stream);
     cudaStreamDestroy(my_stream);
-
-    // Reset the device and return
-    // cudaDeviceReset causes the driver to clean up all state. While
-    // not mandatory in normal operation, it is good practice.  It is also
-    // needed to ensure correct operation when the application is being
-    // profiled. Calling cudaDeviceReset causes all profile data to be
-    // flushed before the application returns
-    err = cudaDeviceReset();
-    if (err != cudaSuccess) {
-        fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));
-    }
 }
 

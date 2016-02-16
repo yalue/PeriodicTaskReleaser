@@ -35,7 +35,7 @@ void * releaser(void *releaser_args) {
     if (clock_gettime(CLOCK_REALTIME, &start_time)) {
       error("Error getting current time");
     }
-    fprintf(ostream, "%lld.%.9ld\tBROADCAST: %3d. (Period %5d ms).\n", (long long) start_time.tv_sec, start_time.tv_nsec, thread_id, ms);
+    fprintf(ostream, "%lld.%.9ld\tRELEASE:   %3d. (Period %6d ms).\n", (long long) start_time.tv_sec, start_time.tv_nsec, i, ms);
     fflush(ostream);
     pthread_cond_broadcast(cond);
     nanosleep(&ts, NULL);
