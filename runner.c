@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#include "releaser.h"
 #include "runner.h"
 #include "util.h"
 #include "GPUOp.h"
@@ -54,7 +53,7 @@ void * runner(void *runner_args) {
       error("Error getting current time");
     }
     fprintf(ostream, "%lld.%.9ld\tACCEPT:    %3d.\n", (long long) start_time.tv_sec,
-        start_time.tv_nsec, i % MAX_SIGNALS);
+        start_time.tv_nsec, i);
     fflush(ostream);
 
     // do work here instead of sleeping
@@ -64,7 +63,7 @@ void * runner(void *runner_args) {
       error("Error getting current time");
     }
     fprintf(ostream, "%lld.%.9ld\tFINISH:    %3d. (Execution %3ld ms) (Unused %3ld ms).\n", 
-      (long long) end_time.tv_sec, end_time.tv_nsec, i % MAX_SIGNALS,
+      (long long) end_time.tv_sec, end_time.tv_nsec, i,
 
       (long) ((end_time.tv_sec - start_time.tv_sec) * 1e3 +
       (end_time.tv_nsec - start_time.tv_nsec) * 1e-6),
