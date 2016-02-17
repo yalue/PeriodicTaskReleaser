@@ -6,39 +6,44 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "releaser.h"
 #include "runner.h"
 
 ////////tmp
 #include "GPUOp.h"
 
 #define NUM_RUNNERS 3
-#define PERIOD_DURATION 400
+#define PERIOD_DURATION 1000
 #define MAX_DATA_SIZE 8388608 // 2^23 ... 2^24 is too big
 #define MAX_FILE_NAME 32
+#define EXPERIMENT_DURATION 10000 // 10 seconds
 
 int main(int argc, char *argv[]) {
   int rc;
   pthread_t runners[NUM_RUNNERS];
-  pthread_t releasers[NUM_RUNNERS];
-  pthread_cond_t thread_conds[NUM_RUNNERS];
   pthread_mutex_t thread_mutexes[NUM_RUNNERS];
+  pthread_mutexattr_t mutex_attributes[NUM_RUNNERS];
   struct Runner_Args runner_args[NUM_RUNNERS];
-  struct Releaser_Args releaser_args[NUM_RUNNERS];
   FILE *output_files[NUM_RUNNERS];
   int i, j;
+
+  struct timespec start_time;
+  struct timespec end_time;
 
   // Initialize thread state
   for (i = 0; i < NUM_RUNNERS; ++i) {
     char file_name[MAX_FILE_NAME];
 
-    // Create condition variables.
-    pthread_cond_init(&thread_conds[i], NULL);
-
+    // Create mutex attributes
+    pthread_mutexattr_init(&mutex_attributes[i]);
+    // Priority inheritance
+    pthread_mutexattr_setprotocol(&mutex_attributes[i], PTHREAD_PRIO_INHERIT);
     // Create thread mutex.
-    pthread_mutex_init(&thread_mutexes[i], NULL);
+    pthread_mutex_init(&thread_mutexes[i], &mutex_attributes[i]);
     // We may want to set mutex attributes to handle
     // priority ineversion differently than the defaults.
+
+    // Lock the mutex so we can release the threads at a specified time.
+    pthread_mutex_lock(&thread_mutexes[i]);
 
     // Create output files
     // Put "file" then k then ".txt" in to filename.
@@ -51,16 +56,9 @@ int main(int argc, char *argv[]) {
 
     // Assign thread args.
     runner_args[i].isActive = 1;
-    runner_args[i].thread_id = i;
-    runner_args[i].cond = &thread_conds[i];
     runner_args[i].mutex = &thread_mutexes[i];
     runner_args[i].ostream = output_files[i];
-
-    // Assign releaser args
-    releaser_args[i].thread_id = i;
-    releaser_args[i].ms = PERIOD_DURATION;// All with equal periods / (i + 1); // To get varied periods in here...
-    releaser_args[i].cond = &thread_conds[i];
-    releaser_args[i].ostream = output_files[i];
+    runner_args[i].ms = PERIOD_DURATION;
   }
   // Create runners
   for (i = 0; i < NUM_RUNNERS; ++i) {
@@ -78,49 +76,61 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Sleeping 1 second...\n");
     struct timespec ts;
     int ms;
-    ms = 1000;
-    ts.tv_sec = ms / 1000;
-    ts.tv_nsec = (ms % 1000) * 1000000;
+    ms = PERIOD_DURATION;
+    ts.tv_sec = ms / MS_PER_SEC;
+    ts.tv_nsec = (ms % MS_PER_SEC) * NS_PER_MS;
     nanosleep(&ts, NULL);
     fprintf(stderr, "Here we go!\n");
   }
 
-  // Create releasers for different input sizes
-  for (j = 1024; j < MAX_DATA_SIZE; j*=2) {
-    for (i = 0; i < NUM_RUNNERS; ++i) {
-      runner_args[i].datasize = j;
-    }
-
+  {
+    j = 1024;
     // Delimit experimental runs with a series of '-';
     for (i = 0; i < NUM_RUNNERS; ++i) {
       fprintf(output_files[i], "------------------------------\n");
-      fprintf(output_files[i], "Datasize: %d %d\n", j, MAX_SIGNALS);
+      fprintf(output_files[i], "Datasize: %d\n", j);
     }
 
-    // Create the releasers
+    // Record start time
+    clock_gettime(CLOCK_REALTIME, &start_time);
+    end_time.tv_sec = start_time.tv_sec + EXPERIMENT_DURATION / MS_PER_SEC;
+    end_time.tv_nsec = start_time.tv_nsec + (EXPERIMENT_DURATION % MS_PER_SEC) * NS_PER_MS;
+    // Specify datasize
     for (i = 0; i < NUM_RUNNERS; ++i) {
-      rc = pthread_create(&releasers[i], NULL, releaser, (void *) &releaser_args[i]);
-      if (rc) {
-        fprintf(stderr, "Error creating releaser: %d\n", rc);
-        exit(-1);
-      }
+      runner_args[i].datasize = j;
     }
-    // Wait on releasers
+    // Release runners
     for (i = 0; i < NUM_RUNNERS; ++i) {
-      if ((rc = pthread_join(releasers[i], NULL))) {
-        // error
-        fprintf(stderr, "Error joining releaser: %d.\n", rc);
-      }
+      pthread_mutex_unlock(&thread_mutexes[i]);
+    }
+    printf("Going to sleep.\n");
+    if ((rc = clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &end_time, NULL))) {
+      fprintf(stderr, "Error during sleep: %s. Args: %lld.%.9ld\n", strerror(rc),
+          (long long) end_time.tv_sec, end_time.tv_nsec);
+    }
+    printf("Woke up.\n");
+    for (i = 0; i < NUM_RUNNERS; ++i) {
+      pthread_mutex_lock(&thread_mutexes[i]);
+      printf("Locked thread %d\n", i);
     }
   }
-  fprintf(stderr, "Finished runs.\n");
-  // Signal termination to runners
   for (i = 0; i < NUM_RUNNERS; ++i) {
     runner_args[i].isActive = 0;
-    if ((rc = pthread_join(runners[i], NULL))) {
-      // error
-      fprintf(stderr, "Error joining runner: %d.\n", rc);
-    }
+    pthread_mutex_unlock(&thread_mutexes[i]);
+  }
+  fprintf(stderr, "Finished runs.\n");
+  for (i = 0; i < NUM_RUNNERS; ++i) {
+    fprintf(output_files[i], "------------------------------\n");
+    fprintf(output_files[i], "Start %lld.%.9ld.\nEnd:  %lld.%.9ld.\n", 
+        (long long) start_time.tv_sec, start_time.tv_nsec,
+        (long long) end_time.tv_sec, end_time.tv_nsec);
+
+    clock_gettime(CLOCK_REALTIME, &end_time);
+    fprintf(output_files[i], "Expected duration: %d. Actual duration: %lld\n", 
+        EXPERIMENT_DURATION,
+        (long long) ((end_time.tv_sec - start_time.tv_sec) * 1e3 +
+        (end_time.tv_nsec - start_time.tv_nsec) * 1e-6));
+    fclose(output_files[i]);
   }
   pthread_exit(NULL);
 }
