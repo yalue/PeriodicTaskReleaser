@@ -185,6 +185,7 @@ void launchThreads(int data_size, int runner_fns[], int period[], int num_runner
     fflush(output_files[i]);
     fclose(output_files[i]);
   }
+  pthread_barrier_destroy(&barrier);
   fprintf(stderr, "Closed output files.\n");
 }
 

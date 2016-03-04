@@ -82,6 +82,6 @@ void * runner(void *runner_args) {
   } else {
     mm_finish_GPU_Op();
   }
-  fprintf(stderr, "runner terminated.\n");
+  fprintf(stderr, "runner %d terminated.\n", period_ms);
   pthread_exit(NULL);
 }
