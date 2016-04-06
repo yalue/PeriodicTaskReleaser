@@ -11,9 +11,9 @@ void error(char* error) {
   fprintf(stderr, "%s: %s\n", error, buf);
 }
 
-long elapsed_ms(struct timespec *t1, struct timespec *t2) {
-  return (long) ((t2->tv_sec - t1->tv_sec) * 1e3 +
-      (t2->tv_nsec - t1->tv_nsec) * 1e-6);
+long elapsed_ns(struct timespec *t1, struct timespec *t2) {
+  return (long) ((t2->tv_sec - t1->tv_sec) * NS_PER_SEC +
+      (t2->tv_nsec - t1->tv_nsec));
 }
 
 char* format_time(struct timespec *t) {

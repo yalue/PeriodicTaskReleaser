@@ -7,7 +7,7 @@
 
 void error(char*);
 
-long elapsed_ms(struct timespec *t1, struct timespec *t2);
+long elapsed_ns(struct timespec *t1, struct timespec *t2);
 
 char* format_time(struct timespec *t);
 

@@ -34,12 +34,15 @@ void * runner(void *runner_args) {
   period_ms = args->ms;
   function = args->function;
   barrier = args->barrier;
+  datasize = args->datasize;
 
   // Initialize GPU
   if (function == VECTOR_ADD) {
-    va_init_GPU_Op(0);
+    va_init(0);
+    va_mallocHost(datasize);
   } else {
-    mm_init_GPU_Op(0);
+    mm_init(0);
+    mm_mallocHost(datasize);
   }
   // Wait for work
   i = 1;
@@ -54,7 +57,6 @@ void * runner(void *runner_args) {
       fprintf(stderr, "Error during sleep: %s. Args: %s.\n", strerror(rc), format_time(&next_release));
     }
     fprintf(ostream, "%s\tRELEASE:   %3d.\n", format_time(&next_release), i);
-    datasize = args->datasize;
     if (clock_gettime(CLOCK_REALTIME, &start_time)) {
       error("Error getting current time");
     }
@@ -62,25 +64,35 @@ void * runner(void *runner_args) {
  
     // Do periodic task work here
     if (function == VECTOR_ADD) {
-      va_run_GPU_Op(datasize);
+      va_cudaMalloc(datasize);
+      va_copyin(datasize);
+      va_exec(datasize);
+      va_copyout();
+      va_cudaFree();
     } else {
-      mm_run_GPU_Op(datasize);
+      mm_cudaMalloc(datasize);
+      mm_copyin(datasize);
+      mm_exec(datasize);
+      mm_copyout();
+      mm_cudaFree();
     }
 
     if (clock_gettime(CLOCK_REALTIME, &end_time)) {
       error("Error getting current time");
     }
     fprintf(ostream, "%s\tFINISH:    %3d. (Execution %3ld ms) (Unused %3ld ms).\n", 
-      format_time(&end_time), i, elapsed_ms(&start_time, &end_time),
-      period_ms - elapsed_ms(&start_time, &end_time));
+      format_time(&end_time), i, elapsed_ns(&start_time, &end_time),
+      period_ms - elapsed_ns(&start_time, &end_time));
     i++;
     pthread_mutex_unlock(mutex);
   }
   pthread_barrier_wait(barrier);
   if (function == VECTOR_ADD) {
-    va_finish_GPU_Op();
+    va_freeHost();
+    va_finish();
   } else {
-    mm_finish_GPU_Op();
+    mm_freeHost();
+    mm_finish();
   }
   fprintf(stderr, "runner %d terminated.\n", period_ms);
   pthread_exit(NULL);
