@@ -2,8 +2,8 @@
 
 for exp in `seq 10 20`;
 do
-  ./benchmark_ee $((2**$exp)) > Benchmark/SCHED_OTHER/MM${exp}.csv
-  ./benchmark_ee $((2**$exp)) > Benchmark/SCHED_OTHER/VA${exp}.csv
+#  ./benchmark_ee $((2**$exp)) > Benchmark/SCHED_OTHER/MM${exp}.csv
+  ./benchmark_ee $((2**$exp)) 1 > Benchmark/SCHED_OTHER/VA${exp}.csv
 done
 
 #sudo chrt -f 10 ./benchmark_ee 16384 > Benchmark/SCHED_FIFO/MM14.csv
