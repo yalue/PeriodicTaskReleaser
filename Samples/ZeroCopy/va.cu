@@ -5,7 +5,7 @@
 #include <errno.h>
 
 extern "C" {
-#include "../va.h"
+#include "../gpusync.h"
 }
 
 /**
@@ -14,8 +14,7 @@ extern "C" {
  * Computes the vector addition of A and B into C. The 3 vectors have the same
  * number of elements numElements.
  */
-__global__ void
-    vectorAdd(const float *A, const float *B, float *C, int numElements) {
+__global__ void vectorAdd(const float *A, const float *B, float *C, int numElements) {
   int i = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (i < numElements)
@@ -25,16 +24,16 @@ __global__ void
 }
 
 // Stream for the thread's GPU Operations
-cudaStream_t va_stream;
+cudaStream_t stream;
 
 // Memory regions
-float *h_vA, *h_vB, *h_vC;
-float *d_vA, *d_vB, *d_vC;
+float *hA, *hB, *hC;
+float *dA, *dB, *dC;
 size_t vector_len;
 int v_threadsPerBlock;
 int v_blocksPerGrid;
 
-extern "C" void va_init(int sync_level) {
+extern "C" void init(int sync_level) {
   /*
    * The sync_level parameter is an integer that indicates the desired level of
    * synchronization used by the GPU driver (values defined below).  The
@@ -60,29 +59,29 @@ extern "C" void va_init(int sync_level) {
   cudaFree(0);
 
   // create a user defined stream
-  cudaStreamCreate(&va_stream);
+  cudaStreamCreate(&stream);
 }
 
-extern "C" void va_mallocHost(int numElements) {
+extern "C" void mallocCPU(int numElements) {
   vector_len = numElements * sizeof(float);
 
   // Host allocations in pinned memory
   // Allocate the host input vector A
-  cudaError_t err = cudaHostAlloc((void **) &h_vA, vector_len, cudaHostAllocMapped);
+  cudaError_t err = cudaHostAlloc((void **) &hA, vector_len, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host vector A (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Allocate the host input vector B
-  err = cudaHostAlloc((void **) &h_vB, vector_len, cudaHostAllocMapped);
+  err = cudaHostAlloc((void **) &hB, vector_len, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host vector B (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Allocate the host output vector C
-  err = cudaHostAlloc((void **)&h_vC, vector_len, cudaHostAllocMapped);
+  err = cudaHostAlloc((void **)&hC, vector_len, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host vector C (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -90,30 +89,30 @@ extern "C" void va_mallocHost(int numElements) {
 
   // Initialize the host input vectors
   for (int i = 0; i < numElements; ++i) {
-    h_vA[i] = rand()/(float)RAND_MAX;
-    h_vB[i] = rand()/(float)RAND_MAX;
+    hA[i] = rand()/(float)RAND_MAX;
+    hB[i] = rand()/(float)RAND_MAX;
   }
   v_threadsPerBlock = 256;
   v_blocksPerGrid = (numElements + v_threadsPerBlock - 1) / v_threadsPerBlock;
 }
 
-extern "C" void va_cudaMalloc(int numElements) {
+extern "C" void mallocGPU(int numElements) {
   // Allocate the device input vector A
-  cudaError_t err = cudaHostGetDevicePointer((void **)&d_vA, (void *) h_vA, 0);
+  cudaError_t err = cudaHostGetDevicePointer((void **)&dA, (void *) hA, 0);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device vector A (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Allocate the device input vector B
-  err = cudaHostGetDevicePointer((void **)&d_vB, (void *) h_vB, 0);
+  err = cudaHostGetDevicePointer((void **)&dB, (void *) hB, 0);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device vector B (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Allocate the device output vector C
-  err = cudaHostGetDevicePointer((void **)&d_vC, (void *) h_vC, 0);
+  err = cudaHostGetDevicePointer((void **)&dC, (void *) hC, 0);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device vector C (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -121,19 +120,19 @@ extern "C" void va_cudaMalloc(int numElements) {
 
   // synchronize with the stream
   // the wrapper for this function releases any lock held (CE here)
-  cudaStreamSynchronize(va_stream);
+  cudaStreamSynchronize(stream);
 }
 
-extern "C" void va_copyin(int numElements) {
+extern "C" void copyin(int numElements) {
   // NOP
 }
 
-extern "C" void va_exec(int numElements) {
+extern "C" void exec(int numElements) {
   cudaError_t err = cudaSuccess;
 
   // Launch the Vector Add CUDA Kernel
   // lock of EE is handled in wrapper for cudaLaunch()
-  vectorAdd<<<v_blocksPerGrid, v_threadsPerBlock, 0, va_stream>>>(d_vA, d_vB, d_vC, numElements);
+  vectorAdd<<<v_blocksPerGrid, v_threadsPerBlock, 0, stream>>>(dA, dB, dC, numElements);
 
   err = cudaGetLastError();
   if (err != cudaSuccess) {
@@ -142,28 +141,28 @@ extern "C" void va_exec(int numElements) {
   }
   // synchronize with the stream after kernel execution
   // the wrapper for this function releases any lock held (EE here)
-  cudaStreamSynchronize(va_stream);
+  cudaStreamSynchronize(stream);
 }
 
-extern "C" void va_copyout() {
+extern "C" void copyout() {
   // NOP
 }
 
-extern "C" void va_cudaFree() {
+extern "C" void freeGPU() {
   // NOP
 }
 
-extern "C" void va_freeHost() {
+extern "C" void freeCPU() {
   // Free host memory that was pinned
-  cudaFreeHost(h_vA);
-  cudaFreeHost(h_vB);
-  cudaFreeHost(h_vC);
+  cudaFreeHost(hA);
+  cudaFreeHost(hB);
+  cudaFreeHost(hC);
 }
  
-extern "C" void va_finish() {
+extern "C" void finish() {
   // clean up the user allocated stream
-  cudaStreamSynchronize(va_stream);
-  cudaStreamDestroy(va_stream);
+  cudaStreamSynchronize(stream);
+  cudaStreamDestroy(stream);
 
   // Reset the device and return
   // cudaDeviceReset causes the driver to clean up all state. While

@@ -33,7 +33,7 @@
 #include <cuda_runtime.h>
 
 extern "C" {
-#include "../mm.h"
+#include "../gpusync.h"
 }
 
 /**
@@ -117,10 +117,10 @@ void constantInit(float *data, int size, float val) {
 }
 
 // Stream for the thread's GPU Operations
-cudaStream_t mm_stream;
+cudaStream_t stream;
 
-float *h_mA, *h_mB, *h_mC;
-float *d_mA, *d_mB, *d_mC;
+float *hA, *hB, *hC;
+float *dA, *dB, *dC;
 unsigned int matrix_size;
 
 dim3 dimsA;
@@ -128,7 +128,7 @@ dim3 dimsB;
 dim3 threads;
 dim3 grid;
 
-extern "C" void mm_init(int sync_level) {
+extern "C" void init(int sync_level) {
   /*
    * The sync_level parameter is an integer that indicates the desired level of
    * synchronization used by the GPU driver (values defined below).  The
@@ -153,34 +153,34 @@ extern "C" void mm_init(int sync_level) {
   cudaFree(0);
 
   // create a user defined stream
-  cudaStreamCreate(&mm_stream);
+  cudaStreamCreate(&stream);
 }
 
-extern "C" void mm_mallocHost(int numElements) {
+extern "C" void mallocCPU(int numElements) {
   int mem_size = sqrt(numElements) * sqrt(numElements);
 
   // Allocate host memory for matrices A and B
   matrix_size = sizeof(float) * mem_size;
-  cudaError_t err = cudaHostAlloc((void **) &h_mA, matrix_size, cudaHostAllocMapped);
+  cudaError_t err = cudaHostAlloc((void **) &hA, matrix_size, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host memory A (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
-  err = cudaHostAlloc((void **) &h_mB, matrix_size, cudaHostAllocMapped);
+  err = cudaHostAlloc((void **) &hB, matrix_size, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host memory B (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
   // Allocate host matrix C
-  err = cudaHostAlloc((void **) &h_mC, matrix_size, cudaHostAllocMapped);
+  err = cudaHostAlloc((void **) &hC, matrix_size, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host memory C (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Initialize host memory
-  constantInit(h_mA, mem_size, 1.0f);
-  constantInit(h_mB, mem_size, 0.01f);
+  constantInit(hA, mem_size, 1.0f);
+  constantInit(hB, mem_size, 0.01f);
 
   // Setup execution parameters
   int block_size = 16;
@@ -194,19 +194,19 @@ extern "C" void mm_mallocHost(int numElements) {
   grid = dim3(ceil(dimsB.x / (float) threads.x), ceil(dimsA.y / (float) threads.y));
 }
 
-extern "C" void mm_cudaMalloc(int numElements) {
+extern "C" void mallocGPU(int numElements) {
   // Allocate device memory
-  cudaError_t err = cudaHostGetDevicePointer((void **) &d_mA, (void *) h_mA, 0);
+  cudaError_t err = cudaHostGetDevicePointer((void **) &dA, (void *) hA, 0);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device memory A (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
-  err = cudaHostGetDevicePointer((void **) &d_mB, (void *) h_mB, 0);
+  err = cudaHostGetDevicePointer((void **) &dB, (void *) hB, 0);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device memory B (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
-  err = cudaHostGetDevicePointer((void **) &d_mC, (void *) h_mC, 0);
+  err = cudaHostGetDevicePointer((void **) &dC, (void *) hC, 0);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device memory C (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -214,16 +214,16 @@ extern "C" void mm_cudaMalloc(int numElements) {
 
   // synchronize with the stream
   // the wrapper for this function releases any lock held (CE here)
-  cudaStreamSynchronize(mm_stream);
+  cudaStreamSynchronize(stream);
 }
 
-extern "C" void mm_copyin(int numElements) { 
+extern "C" void copyin(int numElements) { 
   // NOP
 }
 
-extern "C" void mm_exec(int numElements) {
+extern "C" void exec(int numElements) {
   cudaError_t err = cudaSuccess;
-  matrixMulCUDA<16><<< grid, threads, 0, mm_stream>>>(d_mC, d_mA, d_mB, dimsA.x, dimsB.x);
+  matrixMulCUDA<16><<< grid, threads, 0, stream>>>(dC, dA, dB, dimsA.x, dimsB.x);
   err = cudaGetLastError();
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to launch matrixMul kernel (error code %s)!\n", cudaGetErrorString(err));
@@ -231,28 +231,28 @@ extern "C" void mm_exec(int numElements) {
   }
   // synchronize with the stream after kernel execution
   // the wrapper for this function releases any lock held (EE here)
-  cudaStreamSynchronize(mm_stream);
+  cudaStreamSynchronize(stream);
 }
 
-extern "C" void mm_copyout() {
+extern "C" void copyout() {
   // NOP
 }
 
-extern "C" void mm_cudaFree() {
+extern "C" void freeGPU() {
   // NOP
 }
 
-extern "C" void mm_freeHost() {
+extern "C" void freeCPU() {
   // Free host memory that was pinned
-  cudaFreeHost(h_mA);
-  cudaFreeHost(h_mB);
-  cudaFreeHost(h_mC);
+  cudaFreeHost(hA);
+  cudaFreeHost(hB);
+  cudaFreeHost(hC);
 }
 
-extern "C" void mm_finish() {
+extern "C" void finish() {
   // clean up the user allocated stream
-  cudaStreamSynchronize(mm_stream);
-  cudaStreamDestroy(mm_stream);
+  cudaStreamSynchronize(stream);
+  cudaStreamDestroy(stream);
 
   // Reset the device and return
   // cudaDeviceReset causes the driver to clean up all state. While

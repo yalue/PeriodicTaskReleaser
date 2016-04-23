@@ -6,16 +6,16 @@
 #include <cuda_runtime.h>
 
 extern "C" {
-#include "../mem.h"
+#include "../gpusync.h"
 }
 
 // Stream for the thread's GPU Operations
-cudaStream_t mm_stream;
+cudaStream_t stream;
 
-float *h_memtest;
-float *d_memtest;
+float *h;
+float *d;
 
-extern "C" void memtest_init(int sync_level, int numElements) {
+extern "C" void init(int sync_level) {
   /*
    * The sync_level parameter is an integer that indicates the desired level of
    * synchronization used by the GPU driver (values defined below).  The
@@ -40,22 +40,24 @@ extern "C" void memtest_init(int sync_level, int numElements) {
   cudaFree(0);
 
   // create a user defined stream
-  cudaStreamCreate(&mm_stream);
+  cudaStreamCreate(&stream);
+}
 
-  cudaError_t err = cudaHostAlloc((void **) &h_memtest, numElements, cudaHostAllocMapped);
+extern "C" void mallocCPU(int numElements) {
+  cudaError_t err = cudaHostAlloc((void **) &h, numElements, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host memory (error code %s)!\n", cudaGetErrorString(err));
   }
 }
 
-extern "C" void memtest_alloc(int numElements) {
+extern "C" void mallocGPU(int numElements) {
   // Nothing to do
 }
 
 #define SPLITSIZE 8192
-extern "C" void memtest_copyin(int numElements) {
+extern "C" void copyin(int numElements) {
   // these calls are asynchronous so only the lock of CE can be handled in the wrapper
-  cudaError_t err = cudaHostGetDevicePointer((void **) &d_memtest, (void *) h_memtest, 0);
+  cudaError_t err = cudaHostGetDevicePointer((void **) &d, (void *) h, 0);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to copy memory from host to device (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -63,24 +65,30 @@ extern "C" void memtest_copyin(int numElements) {
 
   // synchronize with the stream
   // the wrapper for this function releases any lock held (CE here)
-  cudaStreamSynchronize(mm_stream);
+  cudaStreamSynchronize(stream);
 }
 
-extern "C" void memtest_copyout(int numElements) {
+extern "C" void exec(int numElements) {
   // Nothing to do
 }
 
-extern "C" void memtest_cudafree() {
+extern "C" void copyout() {
   // Nothing to do
 }
 
-extern "C" void memtest_cleanup() {
+extern "C" void freeGPU() {
+  // Nothing to do
+}
+
+extern "C" void freeCPU() {
   // Free host memory that was pinned
-  cudaFreeHost(h_memtest);
+  cudaFreeHost(h);
+}
 
+extern "C" void finish() {
   // clean up the user allocated stream
-  cudaStreamSynchronize(mm_stream);
-  cudaStreamDestroy(mm_stream);
+  cudaStreamSynchronize(stream);
+  cudaStreamDestroy(stream);
 
   // Reset the device and return
   // cudaDeviceReset causes the driver to clean up all state. While

@@ -7,8 +7,7 @@
 
 #include "runner.h"
 #include "util.h"
-#include "Samples/va.h"
-#include "Samples/mm.h"
+#include "Samples/gpusync.h"
 
 /**
  * Runs one job when the condition is notified.
@@ -18,7 +17,6 @@ void * runner(void *runner_args) {
   int i;
   int datasize;
   int period_ms;
-  int function;
   struct Runner_Args *args;
   pthread_mutex_t *mutex;
   pthread_barrier_t *barrier;
@@ -31,19 +29,13 @@ void * runner(void *runner_args) {
   args = (struct Runner_Args*) runner_args;
   mutex = args->mutex;
   ostream = args->ostream;
-  period_ms = args->ms;
-  function = args->function;
+  period_ms = args->period_ms;
   barrier = args->barrier;
   datasize = args->datasize;
 
   // Initialize GPU
-  if (function == VECTOR_ADD) {
-    va_init(0);
-    va_mallocHost(datasize);
-  } else {
-    mm_init(0);
-    mm_mallocHost(datasize);
-  }
+  init(0);
+  mallocCPU(datasize);
   // Wait for work
   i = 1;
   clock_gettime(CLOCK_REALTIME, &launch_time);
@@ -63,19 +55,11 @@ void * runner(void *runner_args) {
     fprintf(ostream, "%s\tACCEPT:    %3d.\n", format_time(&start_time), i);
  
     // Do periodic task work here
-    if (function == VECTOR_ADD) {
-      va_cudaMalloc(datasize);
-      va_copyin(datasize);
-      va_exec(datasize);
-      va_copyout();
-      va_cudaFree();
-    } else {
-      mm_cudaMalloc(datasize);
-      mm_copyin(datasize);
-      mm_exec(datasize);
-      mm_copyout();
-      mm_cudaFree();
-    }
+    mallocGPU(datasize);
+    copyin(datasize);
+    exec(datasize);
+    copyout();
+    freeGPU();
 
     if (clock_gettime(CLOCK_REALTIME, &end_time)) {
       error("Error getting current time");
@@ -87,13 +71,8 @@ void * runner(void *runner_args) {
     pthread_mutex_unlock(mutex);
   }
   pthread_barrier_wait(barrier);
-  if (function == VECTOR_ADD) {
-    va_freeHost();
-    va_finish();
-  } else {
-    mm_freeHost();
-    mm_finish();
-  }
+  freeCPU();
+  finish();
   fprintf(stderr, "runner %d terminated.\n", period_ms);
   pthread_exit(NULL);
 }

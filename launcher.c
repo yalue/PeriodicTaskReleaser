@@ -12,16 +12,12 @@
 
 #define SET_UP_DELAY 100
 
-#define INITIAL_DATA_SIZE 524288 // 2^19
-#define MAX_DATA_SIZE 2097152 // 2^21 ... 2^24 is too big
+#define DEFAULT_DATA_SIZE 524288 // 2^19
+#define DEFAULT_PERIOD  33  // 33.3 ms
+#define DEFAULT_N_RUNNERS 1 // 1 runner
+#define DEFAULT_WORST_CASE 33 // 33.3 ms
+#define DEFAULT_EXPERIMENT_DURATION 1000 // 1 seconds
 #define MAX_FILE_NAME 32
-#define EXPERIMENT_DURATION 1000 // 1 seconds
-
-// Valid for 2^19 data only sched_other with locks
-#define VECTOR_ADD_AVG_CASE 13
-#define VECTOR_ADD_WORST_CASE 114
-#define MATRIX_MULTIPLY_AVG_CASE 22
-#define MATRIX_MULTIPLY_WORST_CASE 50
 
 /*
  * Program Args
@@ -31,43 +27,50 @@ const char *argp_program_bug_address = "<vbmiller@cs.unc.edu>";
 static char doc[] = "Periodic task launcher.";
 static char args_doc[] = "";
 static struct argp_option options[] = {
-  {"size", 's', "data_size", OPTION_ARG_OPTIONAL, "Operate on data of this size."},
-  {"runners", 'r', "num_runners", OPTION_ARG_OPTIONAL, "Spawn this many runners."},
-  {"utilization", 'u', "utilization (0-100)", OPTION_ARG_OPTIONAL, 
-      "Percentate utilization of each runner. Total utilization = num_runners * utilization."},
-  {"worstCase", 'w', 0, OPTION_ARG_OPTIONAL, "Uses the worst-case execution time instead of average case."}
+  {"duration", 'd', "experiment_duration", OPTION_ARG_OPTIONAL, "Specifies the duration the experiment should run in milliseconds."},
+  {"size", 's', "data_size", OPTION_ARG_OPTIONAL, "Specifies the size of input data to the task. Some tasks may disregard this value."},
+  {"period", 'p', "period", OPTION_ARG_OPTIONAL, "Specifies the release period of the task in milliseconds."},
+  {"copies", 'n', "n_runners", OPTION_ARG_OPTIONAL, "Specifies the number of copies of tasks to release simultaneously. Typically 1."},
+  {"worstcase", 'w', "worst_case", OPTION_ARG_OPTIONAL, "Specifies the worst-case execution time of this task."}
 };
 
 struct arguments {
   int data_size;
-  int num_runners;
-  int utilization;
+  int experiment_duration;
+  int period;
+  int n_runners;
   int worst_case;
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   struct arguments *arguments = state->input;
   switch (key) {
-    case 's':
-      arguments->data_size = atoi(arg);
-      if (arguments->data_size == 0) {
+    case 'd':
+      arguments->experiment_duration = atoi(arg);
+      if (arguments->experiment_duration < 0) {
         return EINVAL;
       }
       break;
-    case 'r':
-      arguments->num_runners = atoi(arg);
-      if (arguments->num_runners == 0) {
+    case 'n':
+      arguments->n_runners = atoi(arg);
+      if (arguments->n_runners < 0) {
+        return EINVAL;
+      }
+      break;
+    case 'p':
+      arguments->period = atoi(arg);
+      if (arguments->period < 0) {
+        return EINVAL;
+      }
+      break;
+    case 's':
+      arguments->data_size = atoi(arg);
+      if (arguments->data_size < 0) {
         return EINVAL;
       }
       break;
     case 'w':
-      arguments->worst_case = 1;
-      break;
-    case 'u':
-      arguments->utilization = atoi(arg);
-      if (arguments->num_runners == 0) {
-        return EINVAL;
-      }
+      arguments->worst_case = atoi(arg);
       break;
     default:
       return ARGP_ERR_UNKNOWN;
@@ -77,23 +80,23 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
-void launchThreads(int data_size, int runner_fns[], int period[], int num_runners) {
+void launchThreads(int data_size, int period, int n_runners, int worst_case, int experiment_duration) {
   int rc;
-  pthread_t runners[num_runners];
-  pthread_mutex_t thread_mutexes[num_runners];
-  pthread_mutexattr_t mutex_attributes[num_runners];
+  pthread_t runners[n_runners];
+  pthread_mutex_t thread_mutexes[n_runners];
+  pthread_mutexattr_t mutex_attributes[n_runners];
   pthread_barrier_t barrier;
-  struct Runner_Args runner_args[num_runners];
-  FILE *output_files[num_runners];
+  struct Runner_Args runner_args[n_runners];
+  FILE *output_files[n_runners];
   int i;
 
   struct timespec start_time;
   struct timespec end_time;
 
   // Initialize barrier
-  pthread_barrier_init(&barrier, NULL, num_runners + 1);
+  pthread_barrier_init(&barrier, NULL, n_runners + 1);
   // Initialize thread state
-  for (i = 0; i < num_runners; ++i) {
+  for (i = 0; i < n_runners; ++i) {
     char file_name[MAX_FILE_NAME];
 
     // Create mutex attributes
@@ -108,8 +111,7 @@ void launchThreads(int data_size, int runner_fns[], int period[], int num_runner
     // Lock the mutex so we can release the threads at a specified time.
     pthread_mutex_lock(&thread_mutexes[i]);
 
-    // Create output files
-    // Put "file" then k then ".txt" in to filename.
+    // Create output files for each runner
     snprintf(file_name, sizeof(char) * MAX_FILE_NAME, "runner%i.txt", i);
     output_files[i] = (fopen(file_name,"w"));
     if (!output_files[i]) {
@@ -122,16 +124,19 @@ void launchThreads(int data_size, int runner_fns[], int period[], int num_runner
     runner_args[i].mutex = &thread_mutexes[i];
     runner_args[i].barrier = &barrier;
     runner_args[i].ostream = output_files[i];
-    runner_args[i].ms = period[i];
-    runner_args[i].function = runner_fns[i];
-    printf("Thread %d period: %d\n", i, runner_args[i].ms);
+
+    runner_args[i].datasize = data_size;
+    runner_args[i].period_ms = period;
+    runner_args[i].worst_case = worst_case;
+
+    printf("Thread %d period: %d\n", i, runner_args[i].period_ms);
   }
   // Create runners
-  for (i = 0; i < num_runners; ++i) {
+  for (i = 0; i < n_runners; ++i) {
     rc = pthread_create(&runners[i], NULL, runner, (void *) &runner_args[i]);
     if (rc) {
       fprintf(stderr, "Error creating runner: %d\n", rc);
-      exit(-1);
+      exit(EXIT_FAILURE);
     } else {
       fprintf(output_files[i], "Created thread: %d\n", i);
     }
@@ -149,7 +154,7 @@ void launchThreads(int data_size, int runner_fns[], int period[], int num_runner
   }
   {
     // Delimit experimental runs with a series of '-';
-    for (i = 0; i < num_runners; ++i) {
+    for (i = 0; i < n_runners; ++i) {
       fprintf(output_files[i], "------------------------------\n");
       fprintf(output_files[i], "Datasize: %d\n", data_size);
       fflush(output_files[i]);
@@ -157,31 +162,27 @@ void launchThreads(int data_size, int runner_fns[], int period[], int num_runner
 
     // Record start time
     clock_gettime(CLOCK_REALTIME, &start_time);
-    timespec_offset(&end_time, &start_time, EXPERIMENT_DURATION);
-    // Specify datasize
-    for (i = 0; i < num_runners; ++i) {
-      runner_args[i].datasize = data_size;
-    }
+    timespec_offset(&end_time, &start_time, experiment_duration);
     // Release runners
-    for (i = 0; i < num_runners; ++i) {
+    for (i = 0; i < n_runners; ++i) {
       pthread_mutex_unlock(&thread_mutexes[i]);
     }
-    printf("Waiting for threads to complete.\n");
+    fprintf(stderr, "Waiting for threads to complete...\n");
     if ((rc = clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &end_time, NULL))) {
       fprintf(stderr, "Error during sleep: %s. Args: %s.\n", strerror(rc), format_time(&end_time));
     }
-    for (i = 0; i < num_runners; ++i) {
+    for (i = 0; i < n_runners; ++i) {
       pthread_mutex_lock(&thread_mutexes[i]);
-      printf("Thread %d completed.\n", i);
+      fprintf(stderr, "Thread %d completed.\n", i);
     }
   }
-  for (i = 0; i < num_runners; ++i) {
+  for (i = 0; i < n_runners; ++i) {
     runner_args[i].isActive = 0;
     pthread_mutex_unlock(&thread_mutexes[i]);
   }
   pthread_barrier_wait(&barrier);
   fprintf(stderr, "Finished runs.\n");
-  for (i = 0; i < num_runners; ++i) {
+  for (i = 0; i < n_runners; ++i) {
     fflush(output_files[i]);
     fclose(output_files[i]);
   }
@@ -192,28 +193,13 @@ void launchThreads(int data_size, int runner_fns[], int period[], int num_runner
 int main(int argc, char *argv[]) {
   struct arguments arguments;
   // Default value
-  arguments.data_size = INITIAL_DATA_SIZE;
-  arguments.num_runners = 1;
-  arguments.utilization = 100;
-  arguments.worst_case = 0;
+  arguments.data_size = DEFAULT_DATA_SIZE;
+  arguments.period = DEFAULT_PERIOD;
+  arguments.n_runners = DEFAULT_N_RUNNERS;
+  arguments.worst_case = DEFAULT_WORST_CASE;
+  arguments.experiment_duration = DEFAULT_EXPERIMENT_DURATION;
   // Parse args
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
-  {
-    int runner_fns[arguments.num_runners];
-    int period[arguments.num_runners];
-
-    if (arguments.num_runners > 0) {
-      period[0] = (arguments.worst_case ? VECTOR_ADD_WORST_CASE : VECTOR_ADD_AVG_CASE) *
-          100.0 / (float) arguments.utilization;
-      runner_fns[0] = VECTOR_ADD;
-    }
-    if (arguments.num_runners > 1) {
-      period[1] = (arguments.worst_case ? MATRIX_MULTIPLY_WORST_CASE : MATRIX_MULTIPLY_AVG_CASE) * 
-          100.0 / (float) arguments.utilization;
-      runner_fns[1] = MATRIX_MUL;
-    }
-
-    launchThreads(arguments.data_size, runner_fns, period, arguments.num_runners);
-  }
+  launchThreads(arguments.data_size, arguments.period, arguments.n_runners, arguments.worst_case, arguments.experiment_duration);
   pthread_exit(NULL);
 }

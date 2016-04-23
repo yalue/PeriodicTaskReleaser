@@ -6,16 +6,17 @@
 #include <cuda_runtime.h>
 
 extern "C" {
-#include "../mem.h"
+#include "../gpusync.h"
 }
 
 // Stream for the thread's GPU Operations
-cudaStream_t mm_stream;
+cudaStream_t stream;
 
-float *h_memtest;
-float *d_memtest;
+float *h;
+float *d;
+int size;
 
-extern "C" void memtest_init(int sync_level, int numElements) {
+extern "C" void init(int sync_level) {
   /*
    * The sync_level parameter is an integer that indicates the desired level of
    * synchronization used by the GPU driver (values defined below).  The
@@ -37,19 +38,21 @@ extern "C" void memtest_init(int sync_level, int numElements) {
   cudaFree(0);
 
   // create a user defined stream
-  cudaStreamCreate(&mm_stream);
+  cudaStreamCreate(&stream);
+}
 
-  cudaError_t err = cudaMallocHost((void **) &h_memtest, numElements);
+extern "C" void mallocCPU(int numElements) {
+  cudaError_t err = cudaMallocHost((void **) &h, numElements);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host memory (error code %s)!\n", cudaGetErrorString(err));
   }
 }
 
-extern "C" void memtest_alloc(int numElements) {
+extern "C" void mallocGPU(int numElements) {
   cudaError_t err = cudaSuccess;
 
   // Allocate device memory
-  err = cudaMalloc((void **) &d_memtest, numElements);
+  err = cudaMalloc((void **) &d, numElements);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device memory (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -57,9 +60,10 @@ extern "C" void memtest_alloc(int numElements) {
 }
 
 #define SPLITSIZE 8192
-extern "C" void memtest_copyin(int numElements) {
+extern "C" void copyin(int numElements) {
+  size = numElements;
   // these calls are asynchronous so only the lock of CE can be handled in the wrapper
-  cudaError_t err = cudaMemcpyAsync(d_memtest, h_memtest, numElements, cudaMemcpyHostToDevice, mm_stream);
+  cudaError_t err = cudaMemcpyAsync(d, h, numElements, cudaMemcpyHostToDevice, stream);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to copy memory from host to device (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -67,37 +71,43 @@ extern "C" void memtest_copyin(int numElements) {
 
   // synchronize with the stream
   // the wrapper for this function releases any lock held (CE here)
-  cudaStreamSynchronize(mm_stream);
+  cudaStreamSynchronize(stream);
 }
 
-extern "C" void memtest_copyout(int numElements) {
+extern "C" void exec(int numElements) {
+  // Nothing to do
+}
+
+extern "C" void copyout() {
   // this call is asynchronous so only the lock of CE can be handled in the wrapper
-  cudaError_t err = cudaMemcpyAsync(h_memtest, d_memtest, numElements, cudaMemcpyDeviceToHost, mm_stream);
+  cudaError_t err = cudaMemcpyAsync(h, d, size, cudaMemcpyDeviceToHost, stream);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to copy memory from device to host (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
   // synchronize with the stream
   // the wrapper for this function releases any lock held (CE here)
-  cudaStreamSynchronize(mm_stream);
+  cudaStreamSynchronize(stream);
 }
 
-extern "C" void memtest_cudafree() {
+extern "C" void freeGPU() {
   // Free device global memory for inputs A and B and result C
-  cudaError_t err = cudaFree(d_memtest);
+  cudaError_t err = cudaFree(d);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to free device memory A (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 }
 
-extern "C" void memtest_cleanup() {
+extern "C" void freeCPU() {
   // Free host memory that was pinned
-  cudaFreeHost(h_memtest);
+  cudaFreeHost(h);
+}
 
+extern "C" void finish() {
   // clean up the user allocated stream
-  cudaStreamSynchronize(mm_stream);
-  cudaStreamDestroy(mm_stream);
+  cudaStreamSynchronize(stream);
+  cudaStreamDestroy(stream);
 
   // Reset the device and return
   // cudaDeviceReset causes the driver to clean up all state. While
