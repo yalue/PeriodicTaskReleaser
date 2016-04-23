@@ -6,7 +6,7 @@
 #include <pthread.h>
 
 #include "runner.h"
-#include "util.h"
+#include "util/util.h"
 #include "Samples/gpusync.h"
 
 /**
