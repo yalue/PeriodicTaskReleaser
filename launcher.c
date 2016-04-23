@@ -27,11 +27,12 @@ const char *argp_program_bug_address = "<vbmiller@cs.unc.edu>";
 static char doc[] = "Periodic task launcher.";
 static char args_doc[] = "";
 static struct argp_option options[] = {
-  {"duration", 'd', "experiment_duration", OPTION_ARG_OPTIONAL, "Specifies the duration the experiment should run in milliseconds."},
-  {"size", 's', "data_size", OPTION_ARG_OPTIONAL, "Specifies the size of input data to the task. Some tasks may disregard this value."},
-  {"period", 'p', "period", OPTION_ARG_OPTIONAL, "Specifies the release period of the task in milliseconds."},
-  {"copies", 'n', "n_runners", OPTION_ARG_OPTIONAL, "Specifies the number of copies of tasks to release simultaneously. Typically 1."},
-  {"worstcase", 'w', "worst_case", OPTION_ARG_OPTIONAL, "Specifies the worst-case execution time of this task."}
+  {"duration", 'd', "experiment_duration", 0, "Specifies the duration the experiment should run in milliseconds."},
+  {"size", 's', "data_size", 0, "Specifies the size of input data to the task. Some tasks may disregard this value."},
+  {"period", 'p', "period", 0, "Specifies the release period of the task in milliseconds."},
+  {"copies", 'n', "n_runners", 0, "Specifies the number of copies of tasks to release simultaneously. Typically 1."},
+  {"worstcase", 'w', "worst_case", 0, "Specifies the worst-case execution time of this task."},
+  {0},
 };
 
 struct arguments {
