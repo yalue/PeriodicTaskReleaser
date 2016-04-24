@@ -6,8 +6,8 @@
 #include <pthread.h>
 
 #include "runner.h"
-#include "util/util.h"
-#include "Samples/gpusync.h"
+#include "util.h"
+#include "gpusync.h"
 
 /**
  * Runs one job when the condition is notified.

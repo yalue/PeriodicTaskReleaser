@@ -8,7 +8,7 @@
 #include <argp.h>
 
 #include "runner.h"
-#include "util/util.h"
+#include "util.h"
 
 #define SET_UP_DELAY 100
 
