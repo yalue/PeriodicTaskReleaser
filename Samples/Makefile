@@ -1,5 +1,4 @@
-UTIL_DIR = ../util
-INC = -I$(UTIL_DIR)
+INC = -I/home/ubuntu/NVIDIA_CUDA-6.5_Samples/common/inc -I.
 
 all: mem_c.o va_c.o mm_c.o mem_zc.o va_zc.o mm_zc.o
 
@@ -11,6 +10,9 @@ va_c.o: Copy/va.cu
 
 mm_c.o: Copy/mm.cu
 	nvcc -c Copy/mm.cu -o mm_c.o --cudart shared -g --ptxas-options=-v
+
+sf_c.o: Copy/SobelFilter/sf.cu
+	nvcc -c Copy/SobelFilter/sf.cu -o sf_c.o --cudart shared -g --ptxas-options=-v $(INC)
 
 mem_zc.o: ZeroCopy/mem.cu
 	nvcc -c ZeroCopy/mem.cu -o mem_zc.o --cudart shared -g --ptxas-options=-v
