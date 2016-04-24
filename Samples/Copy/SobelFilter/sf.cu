@@ -81,6 +81,58 @@ inline void __checkCudaErrors(cudaError err, const char *file, const int line) {
   }
 }
 
+// override methods in helper_cuda.h
+template <class T> inline bool loadPGM(const char *file, T **data, 
+  unsigned int *w, unsigned int *h) {
+  unsigned char *idata = NULL;
+  unsigned int channels;
+
+  if (!__loadPPM(file, &idata, w, h, &channels)) {
+    return false;
+  }
+
+  unsigned int size = *w **h * channels;
+
+  // initialize mem if necessary
+  // the correct size is checked / set in loadPGMc()
+  if (NULL == *data) {
+    checkCudaErrors(cudaMallocHost(data, sizeof(T) * size));
+  }
+
+  // copy and cast data
+  std::transform(idata, idata + size, *data, ConverterFromUByte<T>());
+  free(idata);
+  return true;
+}
+
+template <class T> inline bool loadPPM4(const char *file, T **data,
+  unsigned int *w,unsigned int *h) {
+  unsigned char *idata = 0;
+  unsigned int channels;
+
+  if (__loadPPM(file, &idata, w, h, &channels)) {
+    // pad 4th component
+    int size = *w **h;
+    // keep the original pointer
+    unsigned char *idata_orig = idata;
+    cudaMallocHost(data, sizeof(T) * size * 4);
+    unsigned char *ptr = *data;
+
+    for (int i=0; i<size; i++) {
+      *ptr++ = *idata++;
+      *ptr++ = *idata++;
+      *ptr++ = *idata++;
+      *ptr++ = 0;
+    }
+
+    free(idata_orig);
+    return true;
+  } else {
+    free(idata);
+    return false;
+  }
+}
+
 // Kernels
 __device__ unsigned char ComputeSobel(
     unsigned char ul, // upper left
@@ -232,7 +284,7 @@ void initializeData(char *file) {
   size_t file_length = strlen(file);
 
   if (!strcmp(&file[file_length - 3], "pgm")) {
-    if (sdkLoadPGM<unsigned char>(file, &pixels, &w, &h) != true) {
+    if (loadPGM<unsigned char>(file, &pixels, &w, &h) != true) {
       printf("Failed to load PGM image file: %s\n", file);
       exit(EXIT_FAILURE);
     }
@@ -240,7 +292,7 @@ void initializeData(char *file) {
     g_Bpp = 1;
   }
   else if (!strcmp(&file[file_length - 3], "ppm")) {
-    if (sdkLoadPPM4(file, &pixels, &w, &h) != true) {
+    if (loadPPM4(file, &pixels, &w, &h) != true) {
       printf("Failed to load PPM image file: %s\n", file);
       exit(EXIT_FAILURE);
     }
