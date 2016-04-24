@@ -1,3 +1,7 @@
+SAMPLE_DIR = ../Samples
+UTIL_DIR = ../util
+INC = -I$(UTIL_DIR) -I$(SAMPLE_DIR)
+
 all: benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_mem_c benchmark_mem_zc
 
 benchmark_va_c: benchmark.o va_c.o util.o
@@ -19,7 +23,7 @@ benchmark_mem_zc: benchmark.o mem_zc.o util.o
 	nvcc benchmark.o mem_zc.o util.o -o benchmark_mem_zc --cudart shared -g
 
 benchmark.o: ./benchmark.c
-	gcc -c ./benchmark.c -Wall -g
+	gcc -c ./benchmark.c -Wall -g $(INC)
 
 memtest.o: ./memtest.c 
 	gcc -c ./memtest.c -Wall -g

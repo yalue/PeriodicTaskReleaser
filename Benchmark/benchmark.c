@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <argp.h>
 
-#include "../Samples/gpusync.h"
-#include "../util/util.h"
+#include "gpusync.h"
+#include "util.h"
 
 #define ALL_OPERATIONS 0
 #define COPY_OPERATIONS 1
