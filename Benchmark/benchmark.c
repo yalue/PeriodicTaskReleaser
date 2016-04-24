@@ -9,6 +9,7 @@
 #define ALL_OPERATIONS 0
 #define COPY_OPERATIONS 1
 #define EXEC_OPERATIONS 2
+#define DEFAULT_OPERATION ALL_OPERATIONS
 #define DEFAULT_DATA_SIZE 524288 // 2^19
 #define DEFAULT_EXPERIMENT_DURATION 60000 // 1 minute 
 #define DEFAULT_ITERATION_COUNT 10000
@@ -24,7 +25,7 @@ static struct argp_option options[] = {
   {"duration", 'd', "experiment_duration", OPTION_HIDDEN, "Specifies the duration the experiment should run in milliseconds."},
   {"iterations", 'n', "iteration_count", 0, "Specifies the number of iterations to run before benchmarking is complete."},
   {"size", 's', "data_size", 0, "Specifies the size of input data to the task. Some tasks may disregard this value."},
-  {"all", 'a', 0, OPTION_ARG_OPTIONAL, "Benchmarks the entire program, excluding setup and teardown."},
+  {"all", 'a', 0, OPTION_ARG_OPTIONAL, "Benchmarks the entire program, excluding setup and teardown. This is the default option."},
   {"copy", 'c', 0, OPTION_ARG_OPTIONAL, "Benchmarks the copy engine use only."},
   {"exec", 'e', 0, OPTION_ARG_OPTIONAL, "Benchmarks the execution engine use only."},
   {0},
@@ -81,6 +82,7 @@ int main(int argc, char** argv) {
   arguments.data_size = DEFAULT_DATA_SIZE;
   arguments.experiment_duration = DEFAULT_EXPERIMENT_DURATION;
   arguments.iteration_count = DEFAULT_ITERATION_COUNT;
+  arguments.operation = DEFAULT_OPERATION;
   // Parse args
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
