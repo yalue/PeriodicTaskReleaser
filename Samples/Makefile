@@ -1,0 +1,25 @@
+UTIL_DIR = ../util
+INC = -I$(UTIL_DIR)
+
+all: mem_c.o va_c.o mm_c.o mem_zc.o va_zc.o mm_zc.o
+
+mem_c.o: Copy/mem.cu
+	nvcc -c Copy/mem.cu -o mem_c.o --cudart shared -g --ptxas-options=-v
+
+va_c.o: Copy/va.cu
+	nvcc -c Copy/va.cu -o va_c.o --cudart shared -g --ptxas-options=-v
+
+mm_c.o: Copy/mm.cu
+	nvcc -c Copy/mm.cu -o mm_c.o --cudart shared -g --ptxas-options=-v
+
+mem_zc.o: ZeroCopy/mem.cu
+	nvcc -c ZeroCopy/mem.cu -o mem_zc.o --cudart shared -g --ptxas-options=-v
+
+va_zc.o: ZeroCopy/va.cu
+	nvcc -c ZeroCopy/va.cu -o va_zc.o --cudart shared -g --ptxas-options=-v
+
+mm_zc.o: ZeroCopy/mm.cu
+	nvcc -c ZeroCopy/mm.cu -o mm_zc.o --cudart shared -g --ptxas-options=-v
+
+clean:
+	rm -rf *.o bin
