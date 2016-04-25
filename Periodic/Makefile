@@ -38,5 +38,5 @@ util.o: $(UTIL_DIR)/util.c
 	gcc -c $(UTIL_DIR)/util.c -Wall -g $(INC)
 
 clean:
-	rm -rf *.o launcher_va_c launcher_va_zc launcher_mm_c launcher_mm_zc bin
+	rm -rf *.o launcher_va_c launcher_va_zc launcher_mm_c launcher_mm_zc bin launcher_sf_c launcher_sd_c
 	cd $(SAMPLE_DIR) && make clean
