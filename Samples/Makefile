@@ -14,6 +14,9 @@ mm_c.o: Copy/mm.cu
 sf_c.o: Copy/SobelFilter/sf.cu
 	nvcc -c Copy/SobelFilter/sf.cu -o sf_c.o --cudart shared -g --ptxas-options=-v $(INC)
 
+sd_c.o: Copy/StereoDisparity/sd.cu
+	nvcc -c Copy/StereoDisparity/sd.cu -o sd_c.o --cudart shared -g --ptxas-options=-v $(INC)
+
 mem_zc.o: ZeroCopy/mem.cu
 	nvcc -c ZeroCopy/mem.cu -o mem_zc.o --cudart shared -g --ptxas-options=-v
 
