@@ -2,7 +2,7 @@ SAMPLE_DIR = ../Samples
 UTIL_DIR = ../util
 INC = -I$(UTIL_DIR) -I$(SAMPLE_DIR)
 
-all: benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_mem_c benchmark_mem_zc benchmark_sf_c
+all: benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_mem_c benchmark_mem_zc benchmark_sf_c benchmark_sd_c
 
 benchmark_va_c: benchmark.o util.o
 	cd $(SAMPLE_DIR) && make va_c.o
