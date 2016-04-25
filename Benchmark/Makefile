@@ -42,4 +42,4 @@ util.o: $(UTIL_DIR)/util.c
 	gcc -c $(UTIL_DIR)/util.c -Wall -g
 
 clean:
-	rm -rf *.o launcher_va_c benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_mem_c benchmark_mem_zc bin
+	rm -rf *.o benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_mem_c benchmark_mem_zc benchmark_sf_c bin
