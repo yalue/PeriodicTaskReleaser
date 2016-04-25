@@ -1,5 +1,4 @@
 #define ERROR_LEN 30
-#define MS_PER_SEC 1000
 #define NS_PER_MS  1000000
 #define NS_PER_SEC 1000000000
 

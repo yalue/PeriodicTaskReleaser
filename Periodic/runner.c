@@ -16,7 +16,7 @@ void * runner(void *runner_args) {
   int rc;
   int i;
   int datasize;
-  int period_ms;
+  int period;
   struct Runner_Args *args;
   pthread_mutex_t *mutex;
   pthread_barrier_t *barrier;
@@ -29,7 +29,7 @@ void * runner(void *runner_args) {
   args = (struct Runner_Args*) runner_args;
   mutex = args->mutex;
   ostream = args->ostream;
-  period_ms = args->period_ms;
+  period = args->period;
   barrier = args->barrier;
   datasize = args->datasize;
 
@@ -44,7 +44,7 @@ void * runner(void *runner_args) {
     if (!args->isActive) {
       break;
     }
-    timespec_offset(&next_release, &launch_time, i * period_ms);
+    timespec_offset(&next_release, &launch_time, i * period);
     if ((rc = clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &next_release, NULL))) {
       fprintf(stderr, "Error during sleep: %s. Args: %s.\n", strerror(rc), format_time(&next_release));
     }
@@ -64,15 +64,15 @@ void * runner(void *runner_args) {
     if (clock_gettime(CLOCK_REALTIME, &end_time)) {
       error("Error getting current time");
     }
-    fprintf(ostream, "%s\tFINISH:    %3d. (Execution %3ld ms) (Unused %3ld ms).\n", 
+    fprintf(ostream, "%s\tFINISH:    %3d. (Execution %3ld ns) (Unused %3ld ns).\n", 
       format_time(&end_time), i, elapsed_ns(&start_time, &end_time),
-      period_ms - elapsed_ns(&start_time, &end_time));
+      period - elapsed_ns(&start_time, &end_time));
     i++;
     pthread_mutex_unlock(mutex);
   }
   pthread_barrier_wait(barrier);
   freeCPU();
   finish();
-  fprintf(stderr, "runner %d terminated.\n", period_ms);
+  fprintf(stderr, "runner %d terminated.\n", period);
   pthread_exit(NULL);
 }

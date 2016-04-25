@@ -3,7 +3,7 @@
 struct Runner_Args {
   int isActive;
   int datasize;
-  int period_ms;
+  int period;
   int worst_case;
 
   pthread_mutex_t *mutex;

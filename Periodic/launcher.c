@@ -10,13 +10,13 @@
 #include "runner.h"
 #include "util.h"
 
-#define SET_UP_DELAY 100
+#define SET_UP_DELAY 1 // 1 second
 
-#define DEFAULT_DATA_SIZE 524288 // 2^19
-#define DEFAULT_PERIOD  33  // 33.3 ms
+#define DEFAULT_DATA_SIZE 1024 // 2^10
+#define DEFAULT_PERIOD  33333333  // 33.3 ms
 #define DEFAULT_N_RUNNERS 1 // 1 runner
-#define DEFAULT_WORST_CASE 33 // 33.3 ms
-#define DEFAULT_EXPERIMENT_DURATION 1000 // 1 seconds
+#define DEFAULT_WORST_CASE 33333333 // 33.3 ms
+#define DEFAULT_EXPERIMENT_DURATION 10 // 10 seconds
 #define MAX_FILE_NAME 32
 
 /*
@@ -27,11 +27,11 @@ const char *argp_program_bug_address = "<vbmiller@cs.unc.edu>";
 static char doc[] = "Periodic task launcher.";
 static char args_doc[] = "";
 static struct argp_option options[] = {
-  {"duration", 'd', "experiment_duration", 0, "Specifies the duration the experiment should run in milliseconds."},
+  {"duration", 'd', "experiment_duration", 0, "Specifies the duration the experiment should run in seconds."},
   {"size", 's', "data_size", 0, "Specifies the size of input data to the task. Some tasks may disregard this value."},
-  {"period", 'p', "period", 0, "Specifies the release period of the task in milliseconds."},
+  {"period", 'p', "period", 0, "Specifies the release period of the task in nanoseconds."},
   {"copies", 'n', "n_runners", 0, "Specifies the number of copies of tasks to release simultaneously. Typically 1."},
-  {"worstcase", 'w', "worst_case", 0, "Specifies the worst-case execution time of this task."},
+  {"worstcase", 'w', "worst_case", OPTION_HIDDEN, "Specifies the worst-case execution time of this task."},
   {0},
 };
 
@@ -127,10 +127,10 @@ void launchThreads(int data_size, int period, int n_runners, int worst_case, int
     runner_args[i].ostream = output_files[i];
 
     runner_args[i].datasize = data_size;
-    runner_args[i].period_ms = period;
+    runner_args[i].period = period;
     runner_args[i].worst_case = worst_case;
 
-    printf("Thread %d period: %d\n", i, runner_args[i].period_ms);
+    fprintf(stderr, "Thread %d period: %d ns\n", i, runner_args[i].period);
   }
   // Create runners
   for (i = 0; i < n_runners; ++i) {
@@ -146,12 +146,9 @@ void launchThreads(int data_size, int period, int n_runners, int worst_case, int
     // Sleep launcher to allow all threads to initialize.
     fprintf(stderr, "Initializing threads...\n");
     struct timespec delay;
-    int ms;
-    ms = SET_UP_DELAY;
-    delay.tv_sec = ms / MS_PER_SEC;
-    delay.tv_nsec = (ms % MS_PER_SEC) * NS_PER_MS;
+    delay.tv_sec = SET_UP_DELAY;
     nanosleep(&delay, NULL);
-    fprintf(stderr, "Here we go!\n");
+    fprintf(stderr, "Launching!\n");
   }
   {
     // Delimit experimental runs with a series of '-';
@@ -160,10 +157,9 @@ void launchThreads(int data_size, int period, int n_runners, int worst_case, int
       fprintf(output_files[i], "Datasize: %d\n", data_size);
       fflush(output_files[i]);
     }
-
     // Record start time
     clock_gettime(CLOCK_REALTIME, &start_time);
-    timespec_offset(&end_time, &start_time, experiment_duration);
+    timespec_offset(&end_time, &start_time, experiment_duration * NS_PER_SEC);
     // Release runners
     for (i = 0; i < n_runners; ++i) {
       pthread_mutex_unlock(&thread_mutexes[i]);

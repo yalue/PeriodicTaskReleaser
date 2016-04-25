@@ -22,9 +22,10 @@ char* format_time(struct timespec *t) {
   return time_buf;
 }
 
-void timespec_offset(struct timespec *result, struct timespec *s, int ms) {
-  long sec = (long) s->tv_sec + ms / MS_PER_SEC;
-  long ns = (long) s->tv_nsec + (ms % MS_PER_SEC) * NS_PER_MS;
+// calculates offset of offset_ns from time s and stores in result.
+void timespec_offset(struct timespec *result, struct timespec *start, int offset_ns) {
+  long sec = (long) start->tv_sec + offset_ns / NS_PER_SEC;
+  long ns = (long) start->tv_nsec + (offset_ns % NS_PER_SEC);
   int overflow = ns / NS_PER_SEC;
   sec += overflow;
   ns %= NS_PER_SEC;
