@@ -1,4 +1,5 @@
 *.txt
 *.csv
 *.o
+Periodic/launcher_*
 bin

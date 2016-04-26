@@ -377,7 +377,7 @@ extern "C" void mallocGPU(int num_elements) {
   setupTexture(imWidth, imHeight, pixels, g_Bpp);
   // may not be necessary
   // memset(pixels, 0x0, g_Bpp * sizeof(Pixel) * imWidth * imHeight);
-  checkCudaErrors(cudaMalloc((void **)&d_result, imWidth * imHeight * sizeof(Pixel)));
+  checkCudaErrors(cudaHostGetDevicePointer(&d_result, h_result, 0));
 }
 
 extern "C" void copyin(int num_elements) {
@@ -398,14 +398,11 @@ extern "C" void exec(int num_elements) {
 }
 
 extern "C" void copyout() {
-  checkCudaErrors(cudaMemcpyAsync(h_result, d_result, imWidth * imHeight * sizeof(Pixel), 
-      cudaMemcpyDeviceToHost, stream));
   cudaStreamSynchronize(stream);
 }
 
 extern "C" void freeGPU() {
   checkCudaErrors(cudaUnbindTexture(tex));
-  checkCudaErrors(cudaFree(d_result));
   checkCudaErrors(cudaFreeArray(array));
 }
 
