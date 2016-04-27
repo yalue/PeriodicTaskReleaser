@@ -2,7 +2,8 @@ SAMPLE_DIR = ../Samples
 UTIL_DIR = ../util
 INC = -I$(UTIL_DIR) -I$(SAMPLE_DIR)
 
-all: launcher_va_c launcher_va_zc launcher_mm_c launcher_mm_zc launcher_sf_c launcher_sf_zc launcher_sd_c
+all: launcher_va_c launcher_va_zc launcher_mm_c launcher_mm_zc launcher_sf_c launcher_sf_zc launcher_sd_c \
+	launcher_sd_zc
 
 launcher_mm_zc: launcher.o  runner.o util.o 
 	cd $(SAMPLE_DIR) && make mm_zc.o
@@ -31,6 +32,10 @@ launcher_sf_zc: launcher.o runner.o util.o
 launcher_sd_c: launcher.o  runner.o util.o
 	cd $(SAMPLE_DIR) && make sd_c.o
 	nvcc launcher.o $(SAMPLE_DIR)/sd_c.o runner.o util.o --cudart shared -g -o launcher_sd_c -lpthread
+
+launcher_sd_zc: launcher.o  runner.o util.o
+	cd $(SAMPLE_DIR) && make sd_zc.o
+	nvcc launcher.o $(SAMPLE_DIR)/sd_zc.o runner.o util.o --cudart shared -g -o launcher_sd_zc -lpthread
 
 runner.o: runner.c
 	gcc -c runner.c -Wall -g $(INC)

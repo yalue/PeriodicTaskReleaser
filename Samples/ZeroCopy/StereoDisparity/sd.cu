@@ -237,10 +237,10 @@ extern "C" void mallocCPU(int numElements) {
 
 
 extern "C" void mallocGPU(int unused) {
-  // allocate device memory for inputs and result
-  checkCudaErrors(cudaMalloc((void **) &d_odata, memSize));
+  // allocate device memory for inputs
   checkCudaErrors(cudaMalloc((void **) &d_img0, memSize));
   checkCudaErrors(cudaMalloc((void **) &d_img1, memSize));
+  checkCudaErrors(cudaHostGetDevicePointer(&d_odata, h_odata, 0));
 
   checkCudaErrors(cudaBindTexture2D(&offset, tex2Dleft, d_img0, ca_desc0, w, h, w*4));
   assert(offset == 0);
@@ -265,10 +265,6 @@ extern "C" void copyin(int unused) {
   // synchronize with the stream
   // the wrapper for this function releases any lock held (CE here)
   cudaStreamSynchronize(stream);
-
-  // copy host memory that was set to zero to initialize device output
-  // this call is asynchronous so only the lock of CE can be handled in the wrapper
-  checkCudaErrors(cudaMemcpyAsync(d_odata, h_odata, memSize, cudaMemcpyHostToDevice, stream));
 
   // synchronize with the stream
   // the wrapper for this function releases any lock held (CE here)
@@ -298,9 +294,8 @@ extern "C" void copyout() {
   cudaStreamSynchronize(stream);
 }
 
-extern "C" void freeGPU() { 
+extern "C" void freeGPU() {
   // cleanup device memory
-  checkCudaErrors(cudaFree(d_odata));
   checkCudaErrors(cudaFree(d_img0));
   checkCudaErrors(cudaFree(d_img1));
 }

@@ -1,7 +1,7 @@
 INC = -I/home/ubuntu/NVIDIA_CUDA-6.5_Samples/common/inc -I.
 INC += -I/home/ubuntu/samples/NVIDIA_CUDA-6.5_Samples/common/inc
 
-all: mem_c.o va_c.o mm_c.o mem_zc.o va_zc.o mm_zc.o sf_c.o sf_zc.o sd_c.o
+all: mem_c.o va_c.o mm_c.o mem_zc.o va_zc.o mm_zc.o sf_c.o sf_zc.o sd_c.o sd_zc.o
 
 mem_c.o: Copy/mem.cu
 	nvcc -c Copy/mem.cu -o mem_c.o --cudart shared -g --ptxas-options=-v
@@ -20,6 +20,9 @@ sf_zc.o: ZeroCopy/SobelFilter/sf.cu
 
 sd_c.o: Copy/StereoDisparity/sd.cu
 	nvcc -c Copy/StereoDisparity/sd.cu -o sd_c.o --cudart shared -g --ptxas-options=-v $(INC)
+
+sd_zc.o: ZeroCopy/StereoDisparity/sd.cu
+	nvcc -c ZeroCopy/StereoDisparity/sd.cu -o sd_zc.o --cudart shared -g --ptxas-options=-v $(INC)
 
 mem_zc.o: ZeroCopy/mem.cu
 	nvcc -c ZeroCopy/mem.cu -o mem_zc.o --cudart shared -g --ptxas-options=-v
