@@ -3,3 +3,4 @@
 *.o
 Periodic/launcher_*
 bin
+Benchmark/benchmark_*
