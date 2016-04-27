@@ -89,7 +89,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
-void launchThreads(int data_size, int period, int n_runners, int worst_case, int experiment_duration) {
+void launchThreads(int data_size, int period, int n_runners, int worst_case, int experiment_duration, int sync) {
   int rc;
   pthread_t runners[n_runners];
   pthread_mutex_t thread_mutexes[n_runners];
@@ -207,6 +207,6 @@ int main(int argc, char *argv[]) {
   arguments.experiment_duration = DEFAULT_EXPERIMENT_DURATION;
   // Parse args
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
-  launchThreads(arguments.data_size, arguments.period, arguments.n_runners, arguments.worst_case, arguments.experiment_duration);
+  launchThreads(arguments.data_size, arguments.period, arguments.n_runners, arguments.worst_case, arguments.experiment_duration, arguments.sync);
   pthread_exit(NULL);
 }
