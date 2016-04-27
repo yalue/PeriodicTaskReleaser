@@ -32,6 +32,7 @@ static struct argp_option options[] = {
   {"period", 'p', "period", 0, "Specifies the release period of the task in nanoseconds."},
   {"copies", 'n', "n_runners", 0, "Specifies the number of copies of tasks to release simultaneously. Typically 1."},
   {"worstcase", 'w', "worst_case", OPTION_HIDDEN, "Specifies the worst-case execution time of this task."},
+  {"sync", 'y', "{0|1}", 0, "Specifies how the CPU should synchronize with the GPU kernel. {0: spin, 1: yield, default: block}."},
   {0},
 };
 
@@ -41,6 +42,7 @@ struct arguments {
   int period;
   int n_runners;
   int worst_case;
+  int sync;
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -72,6 +74,12 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       break;
     case 'w':
       arguments->worst_case = atoi(arg);
+      break;
+    case 'y':
+      arguments->sync= atoi(arg);
+      if (arguments->sync < 0 || arguments->sync > 2) {
+        return EINVAL;
+      }
       break;
     default:
       return ARGP_ERR_UNKNOWN;
@@ -129,6 +137,7 @@ void launchThreads(int data_size, int period, int n_runners, int worst_case, int
     runner_args[i].datasize = data_size;
     runner_args[i].period = period;
     runner_args[i].worst_case = worst_case;
+    runner_args[i].sync = sync;
 
     fprintf(stderr, "Thread %d period: %d ns\n", i, runner_args[i].period);
   }
@@ -147,6 +156,7 @@ void launchThreads(int data_size, int period, int n_runners, int worst_case, int
     fprintf(stderr, "Initializing threads...\n");
     struct timespec delay;
     delay.tv_sec = SET_UP_DELAY;
+    delay.tv_nsec = 0;
     nanosleep(&delay, NULL);
     fprintf(stderr, "Launching!\n");
   }

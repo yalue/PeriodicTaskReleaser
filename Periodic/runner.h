@@ -5,6 +5,7 @@ struct Runner_Args {
   int datasize;
   int period;
   int worst_case;
+  int sync;
 
   pthread_mutex_t *mutex;
   pthread_barrier_t *barrier;

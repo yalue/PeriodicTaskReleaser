@@ -17,6 +17,7 @@ void * runner(void *runner_args) {
   int i;
   int datasize;
   int period;
+  int sync;
   struct Runner_Args *args;
   pthread_mutex_t *mutex;
   pthread_barrier_t *barrier;
@@ -32,9 +33,10 @@ void * runner(void *runner_args) {
   period = args->period;
   barrier = args->barrier;
   datasize = args->datasize;
+  sync = args->sync;
 
   // Initialize GPU
-  init(0);
+  init(sync);
   mallocCPU(datasize);
   // Wait for work
   i = 1;
