@@ -3,94 +3,46 @@
 #include <string.h>
 #include <stdio.h>
 #include "HOGDefines.h"
+#include "HOGEngine.h"
+#include "HOGEngineDevice.h"
 #include "HOGImage.h"
 #include "HOGResult.h"
 #include "HOGUtils.h"
 
 // Contains some global state
-struct hog {
-  int imageWidth, imageHeight;
-  int avSizeX, avSizeY, marginX, marginY;
-  int scaleCount;
-  int hCellSizeX, hCellSizeY;
-  int hBlockSizeX, hBlockSizeY;
-  int hWindowSizeX, hWindowSizeY;
-  int hNoOfHistogramBins;
-  int hPaddedWidth, hPaddedHeight;
-  int hPaddingSizeX, hPaddingSizeY;
-  int minX, minY, maxX, maxY;
-  float wtScale;
-  float startScale, endScale, scaleRatio;
-  int svmWeightsCount;
-  float svmBias, *svmWeights;
-  int hNoOfCellsX, hNoOfCellsY;
-  int hNoOfBlocksX, hNoOfBlocksY;
-  int hNumberOfWindowsX, hNumberOfWindowsY;
-  int hNumberOfBlockPerWindowX, hNumberOfBlockPerWindowY;
-  bool useGrayscale;
-  float* cppResult;
-  HOGResult formattedResults[MAX_RESULTS];
-  bool formattedResultsAvailable;
-  int formattedResultsCount;
-} HOG;
+struct hog HOG;
 
-extern void InitHOG(int width, int height, int avSizeX, int avSizeY,
-    int marginX, int marginY, int cellSizeX, int cellSizeY,
-    int blockSizeX, int blockSizeY, int windowSizeX, int windowSizeY,
-    int noOfHistogramBins, float wtscale, float svmBias, float* svmWeights,
-    int svmWeightsCount, bool useGrayscale);
-
-extern void CloseHOG();
 extern void ComputeFormattedResults();
 extern void SaveResultsToDisk(char* fileName);
-extern void BeginHOGProcessing(unsigned char* hostImage, int minx, int miny, int maxx, int maxy, float minScale, float maxScale);
-extern float* EndHOGProcessing();
 
-extern void GetProcessedImage(unsigned char* hostImage, int imageType);
-extern void GetHOGParameters(float *cStartScale, float *cEndScale, float *cScaleRatio, int *cScaleCount,
-    int *cPaddingSizeX, int *cPaddingSizeY, int *cPaddedWidth, int *cPaddedHeight,
-    int *cNoOfCellsX, int *cNoOfCellsY, int *cNoOfBlocksX, int *cNoOfBlocksY,
-    int *cNumberOfWindowsX, int *cNumberOfWindowsY,
-    int *cNumberOfBlockPerWindowX, int *cNumberOfBlockPerWindowY);
-
-
-void InitializeHOG(int iw, int ih, float svmBias, float* svmWeights, int svmWeightsCount)
-{
-	HOG.imageWidth = iw;
-	HOG.imageHeight = ih;
-
-	HOG.avSizeX = 48; //48
-	HOG.avSizeY = 96; //96
-	HOG.marginX = 4; // 4
-	HOG.marginY = 4; // 4
-
-	HOG.hCellSizeX = 8;
-	HOG.hCellSizeY = 8;
-	HOG.hBlockSizeX = 2;
-	HOG.hBlockSizeY = 2;
-	HOG.hWindowSizeX = 64;
-	HOG.hWindowSizeY = 128;
-	HOG.hNoOfHistogramBins = 9;
-
-	HOG.svmWeightsCount = svmWeightsCount;
-	HOG.svmBias = svmBias;
-	HOG.svmWeights = svmWeights;
-
-	HOG.wtScale = 2.0f;
-
-	HOG.useGrayscale = false;
-
-	HOG.formattedResultsAvailable = false;
-
-	InitHOG(iw, ih, HOG.avSizeX, HOG.avSizeY, HOG.marginX, HOG.marginY, HOG.hCellSizeX, HOG.hCellSizeY, HOG.hBlockSizeX, HOG.hBlockSizeY,
-		HOG.hWindowSizeX, HOG.hWindowSizeY, HOG.hNoOfHistogramBins, HOG.wtScale, HOG.svmBias, HOG.svmWeights, HOG.svmWeightsCount, HOG.useGrayscale);
+void InitializeHOG(int iw, int ih, float svmBias, float* svmWeights,
+    int svmWeightsCount) {
+  HOG.imageWidth = iw;
+  HOG.imageHeight = ih;
+  HOG.avSizeX = 48;
+  HOG.avSizeY = 96;
+  HOG.marginX = 4;
+  HOG.marginY = 4;
+  HOG.hCellSizeX = 8;
+  HOG.hCellSizeY = 8;
+  HOG.hBlockSizeX = 2;
+  HOG.hBlockSizeY = 2;
+  HOG.hWindowSizeX = 64;
+  HOG.hWindowSizeY = 128;
+  HOG.hNoOfHistogramBins = 9;
+  HOG.svmWeightsCount = svmWeightsCount;
+  HOG.svmBias = svmBias;
+  HOG.svmWeights = svmWeights;
+  HOG.wtScale = 2.0f;
+  HOG.useGrayscale = false;
+  HOG.formattedResultsAvailable = false;
+  InitHOG(iw, ih);
 }
 
 
 
-void FinalizeHOG()
-{
-	CloseHOG();
+void FinalizeHOG() {
+  CloseHOG();
 }
 
 void BeginProcess(HOGImage* hostImage,

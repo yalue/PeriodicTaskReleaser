@@ -1,11 +1,12 @@
-#include "HOGEngineDevice.h"
-#include "HOGUtils.h"
-#include "HOGConvolution.h"
-#include "HOGHistogram.h"
-#include "HOGSVMSlider.h"
-#include "HOGScale.h"
-#include "HOGPadding.h"
 #include "cutil.h"
+#include "HOGConvolution.h"
+#include "HOGEngine.h"
+#include "HOGHistogram.h"
+#include "HOGPadding.h"
+#include "HOGScale.h"
+#include "HOGSVMSlider.h"
+#include "HOGUtils.h"
+#include "HOGEngineDevice.h"
 
 int hWidth, hHeight;
 int hWidthROI, hHeightROI;
@@ -53,82 +54,96 @@ int avSizeX, avSizeY, marginX, marginY;
 
 extern uchar4* paddedRegisteredImageU4;
 
-void InitHOG(int width, int height, int _avSizeX, int _avSizeY,
-	     int _marginX, int _marginY, int cellSizeX, int cellSizeY,
-	     int blockSizeX, int blockSizeY, int windowSizeX, int windowSizeY,
-	     int noOfHistogramBins, float wtscale, float svmBias, float* svmWeights, 
-             int svmWeightsCount, bool useGrayscale)
-{
-	cudaSetDevice(0);
+void InitHOG(int width, int height) {
+  cudaSetDevice(0);
+  int i;
+  int toaddxx = 0, toaddxy = 0, toaddyx = 0, toaddyy = 0;
+  hWidth = width;
+  hHeight = height;
+  avSizeX = HOG.avSizeX;
+  avSizeY = HOG.avSizeY;
+  marginX = HOG.marginX;
+  marginY = HOG.marginY;
+  if (avSizeX != 0) {
+    toaddxx = hWidth * marginX / avSizeX;
+    toaddxy = hHeight * marginY / avSizeX;
+  }
+  if (avSizeY != 0) {
+    toaddyx = hWidth * marginX / avSizeY;
+    toaddyy = hHeight * marginY / avSizeY;
+  }
+  hPaddingSizeX = max(toaddxx, toaddyx);
+  hPaddingSizeY = max(toaddxy, toaddyy);
+  hPaddedWidth = hWidth + hPaddingSizeX * 2;
+  hPaddedHeight = hHeight + hPaddingSizeY * 2;
+  hUseGrayscale = HOG.useGrayscale;
+  hNoHistogramBins = HOG.hNoOfHistogramBins;
+  hCellSizeX = HOG.hCellSizeX;
+  hCellSizeY = HOG.hCellSizeY;
+  hBlockSizeX = HOG.hBlockSizeX;
+  hBlockSizeY = HOG.hBlockSizeY;
+  hWindowSizeX = HOG.hWindowSizeX;
+  hWindowSizeY = HOG.hWindowSizeY;
+  hNoOfCellsX = hPaddedWidth / hCellSizeX;
+  hNoOfCellsY = hPaddedHeight / hCellSizeY;
+  hNoOfBlocksX = hNoOfCellsX - hBlockSizeX + 1;
+  hNoOfBlocksY = hNoOfCellsY - hBlockSizeY + 1;
+  hNumberOfBlockPerWindowX = (hWindowSizeX - hCellSizeX * hBlockSizeX) /
+    hCellSizeX + 1;
+  hNumberOfBlockPerWindowY = (hWindowSizeY - hCellSizeY * hBlockSizeY) /
+    hCellSizeY + 1;
 
-	int i;
-	int toaddxx = 0, toaddxy = 0, toaddyx = 0, toaddyy = 0;
+  hNumberOfWindowsX = 0;
+  for (i = 0; i < hNumberOfBlockPerWindowX; i++) {
+    hNumberOfWindowsX += (hNoOfBlocksX - i) / hNumberOfBlockPerWindowX;
+  }
+  hNumberOfWindowsY = 0;
+  for (i = 0; i < hNumberOfBlockPerWindowY; i++) {
+    hNumberOfWindowsY += (hNoOfBlocksY - i) / hNumberOfBlockPerWindowY;
+  }
+  scaleRatio = 1.05f;
+  startScale = 1.0f;
+  endScale = min(hPaddedWidth / (float) hWindowSizeX, hPaddedHeight /
+    (float) hWindowSizeY);
+  scaleCount = (int)floor(logf(endScale / startScale) / logf(scaleRatio)) + 1;
 
-	hWidth = width; hHeight = height;
-	avSizeX = _avSizeX; avSizeY = _avSizeY; marginX = _marginX; marginY = _marginY;
+  cutilSafeCall(cudaMalloc(&paddedRegisteredImage, sizeof(float4) *
+    hPaddedWidth * hPaddedHeight));
+  if (hUseGrayscale) {
+    cutilSafeCall(cudaMalloc(&resizedPaddedImageF1, sizeof(float1) *
+      hPaddedWidth * hPaddedHeight));
+  } else {
+    cutilSafeCall(cudaMalloc(&resizedPaddedImageF4, sizeof(float4) *
+      hPaddedWidth * hPaddedHeight));
+  }
+  cutilSafeCall(cudaMalloc(&colorGradientsF2, sizeof(float2) * hPaddedWidth *
+    hPaddedHeight));
+  cutilSafeCall(cudaMalloc(&blockHistograms, sizeof(float1) * hNoOfBlocksX *
+    hNoOfBlocksY * hCellSizeX * hCellSizeY * hNoHistogramBins));
+  cutilSafeCall(cudaMalloc(&cellHistograms, sizeof(float1) * hNoOfCellsX *
+    hNoOfCellsY * hNoHistogramBins));
+  cutilSafeCall(cudaMalloc(&svmScores, sizeof(float1) * hNumberOfWindowsX *
+    hNumberOfWindowsY * scaleCount));
 
-	if (avSizeX) { toaddxx = hWidth * marginX / avSizeX; toaddxy = hHeight * marginY / avSizeX; }
-	if (avSizeY) { toaddyx = hWidth * marginX / avSizeY; toaddyy = hHeight * marginY / avSizeY; }
+  InitConvolution(hPaddedWidth, hPaddedHeight, hUseGrayscale);
+  InitHistograms(hCellSizeX, hCellSizeY, hBlockSizeX, hBlockSizeY,
+    hNoHistogramBins, HOG.wtScale);
+  InitSVM(HOG.svmBias, HOG.svmWeights, HOG.svmWeightsCount);
+  InitScale(hPaddedWidth, hPaddedHeight);
+  InitPadding(hPaddedWidth, hPaddedHeight);
 
-	hPaddingSizeX = max(toaddxx, toaddyx); hPaddingSizeY = max(toaddxy, toaddyy);
+  rPaddedWidth = hPaddedWidth;
+  rPaddedHeight = hPaddedHeight;
 
-	hPaddedWidth = hWidth + hPaddingSizeX*2;
-	hPaddedHeight = hHeight + hPaddingSizeY*2;
-
-	hUseGrayscale = useGrayscale;
-
-	hNoHistogramBins = noOfHistogramBins;
-	hCellSizeX = cellSizeX; hCellSizeY = cellSizeY; hBlockSizeX = blockSizeX; hBlockSizeY = blockSizeY;
-	hWindowSizeX = windowSizeX; hWindowSizeY = windowSizeY;
-
-	hNoOfCellsX = hPaddedWidth / cellSizeX;
-	hNoOfCellsY = hPaddedHeight / cellSizeY;
-
-	hNoOfBlocksX = hNoOfCellsX - blockSizeX + 1;
-	hNoOfBlocksY = hNoOfCellsY - blockSizeY + 1;
-
-	hNumberOfBlockPerWindowX = (windowSizeX - cellSizeX * blockSizeX) / cellSizeX + 1;
-	hNumberOfBlockPerWindowY = (windowSizeY - cellSizeY * blockSizeY) / cellSizeY + 1;
-
-	hNumberOfWindowsX = 0;
-	for (i=0; i<hNumberOfBlockPerWindowX; i++) hNumberOfWindowsX += (hNoOfBlocksX-i)/hNumberOfBlockPerWindowX;
-
-	hNumberOfWindowsY = 0;
-	for (i=0; i<hNumberOfBlockPerWindowY; i++) hNumberOfWindowsY += (hNoOfBlocksY-i)/hNumberOfBlockPerWindowY;
-
-	scaleRatio = 1.05f;
-	startScale = 1.0f;
-	endScale = min(hPaddedWidth / (float) hWindowSizeX, hPaddedHeight / (float) hWindowSizeY);
-	scaleCount = (int)floor(logf(endScale/startScale)/logf(scaleRatio)) + 1;
-
-	cutilSafeCall(cudaMalloc((void**) &paddedRegisteredImage, sizeof(float4) * hPaddedWidth * hPaddedHeight));
-
-	if (useGrayscale)
-		cutilSafeCall(cudaMalloc((void**) &resizedPaddedImageF1, sizeof(float1) * hPaddedWidth * hPaddedHeight));
-	else
-		cutilSafeCall(cudaMalloc((void**) &resizedPaddedImageF4, sizeof(float4) * hPaddedWidth * hPaddedHeight));
-
-	cutilSafeCall(cudaMalloc((void**) &colorGradientsF2, sizeof(float2) * hPaddedWidth * hPaddedHeight));
-	cutilSafeCall(cudaMalloc((void**) &blockHistograms, sizeof(float1) * hNoOfBlocksX * hNoOfBlocksY * cellSizeX * cellSizeY * hNoHistogramBins));
-	cutilSafeCall(cudaMalloc((void**) &cellHistograms, sizeof(float1) * hNoOfCellsX * hNoOfCellsY * hNoHistogramBins));
-
-	cutilSafeCall(cudaMalloc((void**) &svmScores, sizeof(float1) * hNumberOfWindowsX * hNumberOfWindowsY * scaleCount));
-
-	InitConvolution(hPaddedWidth, hPaddedHeight, useGrayscale);
-	InitHistograms(cellSizeX, cellSizeY, blockSizeX, blockSizeY, noOfHistogramBins, wtscale);
-	InitSVM(svmBias, svmWeights, svmWeightsCount);
-	InitScale(hPaddedWidth, hPaddedHeight);
-	InitPadding(hPaddedWidth, hPaddedHeight);
-
-	rPaddedWidth = hPaddedWidth;
-	rPaddedHeight = hPaddedHeight;
-
-	if (useGrayscale)
-		cutilSafeCall(cudaMalloc((void**) &outputTest1, sizeof(uchar1) * hPaddedWidth * hPaddedHeight));
-	else
-		cutilSafeCall(cudaMalloc((void**) &outputTest4, sizeof(uchar4) * hPaddedWidth * hPaddedHeight));
-
-	cutilSafeCall(cudaMallocHost((void**)&hResult, sizeof(float) * hNumberOfWindowsX * hNumberOfWindowsY * scaleCount));
+  if (hUseGrayscale) {
+    cutilSafeCall(cudaMalloc(&outputTest1, sizeof(uchar1) * hPaddedWidth *
+      hPaddedHeight));
+  } else {
+    cutilSafeCall(cudaMalloc(&outputTest4, sizeof(uchar4) * hPaddedWidth *
+      hPaddedHeight));
+  }
+  cutilSafeCall(cudaMallocHost(&hResult, sizeof(float) * hNumberOfWindowsX *
+    hNumberOfWindowsY * scaleCount));
 }
 
 void CloseHOG()
