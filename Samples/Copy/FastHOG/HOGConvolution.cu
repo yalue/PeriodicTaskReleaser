@@ -10,11 +10,9 @@ dim3 threadBlockColumns;
 #define convKernelRadius 1
 #define convKernelWidth (2 * convKernelRadius + 1)
 __device__ __constant__ float d_Kernel[convKernelWidth];
-float *h_Kernel;
-
+#define convKernelSize (convKernelWidth * sizeof(float))
 #define convRowTileWidth 128
 #define convKernelRadiusAligned 16
-
 #define convColumnTileWidth 16
 #define convColumnTileHeight 48
 
@@ -23,7 +21,6 @@ float1 *convBuffer1;
 
 int convWidth;
 int convHeight;
-const int convKernelSize = convKernelWidth * sizeof(float);
 
 bool convUseGrayscale;
 
@@ -253,11 +250,11 @@ __global__ void convolutionColumnGPU4to2 ( float2 *d_Result, float4 *d_Data, flo
 
 void InitConvolution(int width, int height, bool useGrayscale) {
   convUseGrayscale = useGrayscale;
-  h_Kernel = (float*) malloc(convKernelSize);
+  float h_Kernel[convKernelWidth];
   h_Kernel[0] = 1.0f;
   h_Kernel[1] = 0;
   h_Kernel[2] = -1.0f;
-  cutilSafeCall(cudaMemcpyToSymbol(d_Kernel, h_Kernel, convKernelSize) );
+  cutilSafeCall(cudaMemcpyToSymbol(d_Kernel, h_Kernel, convKernelSize));
   if (useGrayscale) {
     cutilSafeCall(cudaMalloc((void**) &convBuffer1, sizeof(float1) * width * height));
   } else {
@@ -282,7 +279,6 @@ void CloseConvolution() {
   } else {
     cutilSafeCall(cudaFree(convBuffer4));
   }
-  free(h_Kernel);
 }
 
 void ComputeColorGradients1to2(float1* inputImage, float2* outputImage) {
