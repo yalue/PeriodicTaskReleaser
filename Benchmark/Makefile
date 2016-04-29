@@ -2,7 +2,7 @@ SAMPLE_DIR = ../Samples
 UTIL_DIR = ../util
 INC = -I$(UTIL_DIR) -I$(SAMPLE_DIR)
 
-all: benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_mem_c benchmark_mem_zc benchmark_sf_c benchmark_sd_c
+all: benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_mem_c benchmark_mem_zc benchmark_sf_c benchmark_sf_zc benchmark_sd_c benchmark_sd_zc
 
 benchmark_va_c: benchmark.o util.o
 	cd $(SAMPLE_DIR) && make va_c.o
@@ -32,9 +32,17 @@ benchmark_sf_c: benchmark.o util.o
 	cd $(SAMPLE_DIR) && make sf_c.o
 	nvcc benchmark.o $(SAMPLE_DIR)/sf_c.o util.o -o benchmark_sf_c --cudart shared -g
 
+benchmark_sf_zc: benchmark.o util.o
+	cd $(SAMPLE_DIR) && make sf_zc.o
+	nvcc benchmark.o $(SAMPLE_DIR)/sf_zc.o util.o -o benchmark_sf_zc --cudart shared -g
+
 benchmark_sd_c: benchmark.o util.o
 	cd $(SAMPLE_DIR) && make sd_c.o
 	nvcc benchmark.o $(SAMPLE_DIR)/sd_c.o util.o -o benchmark_sd_c --cudart shared -g
+
+benchmark_sd_zc: benchmark.o util.o
+	cd $(SAMPLE_DIR) && make sd_zc.o
+	nvcc benchmark.o $(SAMPLE_DIR)/sd_zc.o util.o -o benchmark_sd_zc --cudart shared -g
 
 benchmark.o: ./benchmark.c
 	gcc -c ./benchmark.c -Wall -g $(INC)
