@@ -251,52 +251,54 @@ __global__ void convolutionColumnGPU4to2 ( float2 *d_Result, float4 *d_Data, flo
 	}
 }
 
-void InitConvolution(int width, int height, bool useGrayscale)
-{
-	convUseGrayscale = useGrayscale;
-
-	h_Kernel = (float *)malloc(convKernelSize);
-	h_Kernel[0] = 1.0f; h_Kernel[1] = 0;  h_Kernel[2] = -1.0f;
-
-	cutilSafeCall( cudaMemcpyToSymbol(d_Kernel, h_Kernel, convKernelSize) );
-
-	if (useGrayscale)
-		cutilSafeCall(cudaMalloc((void**) &convBuffer1, sizeof(float1) * width * height));
-	else
-		cutilSafeCall(cudaMalloc((void**) &convBuffer4, sizeof(float4) * width * height));
+void InitConvolution(int width, int height, bool useGrayscale) {
+  convUseGrayscale = useGrayscale;
+  h_Kernel = (float*) malloc(convKernelSize);
+  h_Kernel[0] = 1.0f;
+  h_Kernel[1] = 0;
+  h_Kernel[2] = -1.0f;
+  cutilSafeCall(cudaMemcpyToSymbol(d_Kernel, h_Kernel, convKernelSize) );
+  if (useGrayscale) {
+    cutilSafeCall(cudaMalloc((void**) &convBuffer1, sizeof(float1) * width * height));
+  } else {
+    cutilSafeCall(cudaMalloc((void**) &convBuffer4, sizeof(float4) * width * height));
+  }
 }
 
-void SetConvolutionSize(int width, int height)
-{
-	convWidth = width;
-	convHeight = height;
-
-	blockGridRows = dim3(iDivUp(convWidth, convRowTileWidth), convHeight);
-	blockGridColumns = dim3(iDivUp(convWidth, convColumnTileWidth), iDivUp(convHeight, convColumnTileHeight));
-	threadBlockRows = dim3(convKernelRadiusAligned + convRowTileWidth + convKernelRadius);
-	threadBlockColumns = dim3(convColumnTileWidth, 8);
+void SetConvolutionSize(int width, int height) {
+  convWidth = width;
+  convHeight = height;
+  blockGridRows = dim3(iDivUp(convWidth, convRowTileWidth), convHeight);
+  blockGridColumns = dim3(iDivUp(convWidth, convColumnTileWidth),
+    iDivUp(convHeight, convColumnTileHeight));
+  threadBlockRows = dim3(convKernelRadiusAligned + convRowTileWidth +
+    convKernelRadius);
+  threadBlockColumns = dim3(convColumnTileWidth, 8);
 }
 
-void CloseConvolution()
-{
-	if (convUseGrayscale)
-		cutilSafeCall(cudaFree(convBuffer1));
-	else
-		cutilSafeCall(cudaFree(convBuffer4));
-
-	free(h_Kernel);
+void CloseConvolution() {
+  if (convUseGrayscale) {
+    cutilSafeCall(cudaFree(convBuffer1));
+  } else {
+    cutilSafeCall(cudaFree(convBuffer4));
+  }
+  free(h_Kernel);
 }
 
-void ComputeColorGradients1to2(float1* inputImage, float2* outputImage)
-{
-	convolutionRowGPU1<<<blockGridRows, threadBlockRows>>>(convBuffer1, inputImage, convWidth, convHeight);
-	convolutionColumnGPU1to2<<<blockGridColumns, threadBlockColumns>>>(outputImage, inputImage, convBuffer1, convWidth, convHeight,
-		convColumnTileWidth * threadBlockColumns.y, convWidth * threadBlockColumns.y);
+void ComputeColorGradients1to2(float1* inputImage, float2* outputImage) {
+  convolutionRowGPU1<<<blockGridRows, threadBlockRows>>>(convBuffer1,
+    inputImage, convWidth, convHeight);
+  convolutionColumnGPU1to2<<<blockGridColumns, threadBlockColumns>>>(
+    outputImage, inputImage, convBuffer1, convWidth, convHeight,
+    convColumnTileWidth * threadBlockColumns.y, convWidth *
+    threadBlockColumns.y);
 }
 
-void ComputeColorGradients4to2(float4* inputImage, float2* outputImage)
-{
-	convolutionRowGPU4<<<blockGridRows, threadBlockRows>>>(convBuffer4, inputImage, convWidth, convHeight);
-	convolutionColumnGPU4to2<<<blockGridColumns, threadBlockColumns>>>(outputImage, inputImage, convBuffer4, convWidth, convHeight,
-		convColumnTileWidth * threadBlockColumns.y, convWidth * threadBlockColumns.y);
+void ComputeColorGradients4to2(float4* inputImage, float2* outputImage) {
+  convolutionRowGPU4<<<blockGridRows, threadBlockRows>>>(convBuffer4,
+    inputImage, convWidth, convHeight);
+  convolutionColumnGPU4to2<<<blockGridColumns, threadBlockColumns>>>(
+    outputImage, inputImage, convBuffer4, convWidth, convHeight,
+    convColumnTileWidth * threadBlockColumns.y, convWidth *
+    threadBlockColumns.y);
 }
