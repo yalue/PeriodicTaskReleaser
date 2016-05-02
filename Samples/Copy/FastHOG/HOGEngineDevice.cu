@@ -146,34 +146,28 @@ void InitHOG(int width, int height) {
     hNumberOfWindowsY * scaleCount));
 }
 
-void CloseHOG()
-{
+void CloseHOG() {
   cutilSafeCall(cudaFree(paddedRegisteredImage));
-
-  if (hUseGrayscale)
+  if (hUseGrayscale) {
     cutilSafeCall(cudaFree(resizedPaddedImageF1));
-  else
+  } else {
     cutilSafeCall(cudaFree(resizedPaddedImageF4));
-
+  }
   cutilSafeCall(cudaFree(colorGradientsF2));
   cutilSafeCall(cudaFree(blockHistograms));
   cutilSafeCall(cudaFree(cellHistograms));
-
   cutilSafeCall(cudaFree(svmScores));
-
   CloseConvolution();
   CloseHistogram();
   CloseSVM();
   CloseScale();
   ClosePadding();
-
-  if (hUseGrayscale)
+  if (hUseGrayscale) {
     cutilSafeCall(cudaFree(outputTest1));
-  else
+  } else {
     cutilSafeCall(cudaFree(outputTest4));
-
+  }
   cutilSafeCall(cudaFreeHost(hResult));
-
   cudaThreadExit();
 }
 

@@ -72,8 +72,7 @@ void InitHistograms(int cellSizeX, int cellSizeY, int blockSizeX,
     cudaMemcpyHostToDevice));
 }
 
-void CloseHistogram() {
-}
+void CloseHistogram() {}
 
 __global__ void computeBlockHistogramsWithGauss(float2* inputImage, float1* blockHistograms, int noHistogramBins,
             int cellSizeX, int cellSizeY, int blockSizeX, int blockSizeY,
