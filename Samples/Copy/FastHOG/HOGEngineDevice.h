@@ -12,15 +12,11 @@
 
 void InitHOG(int width, int height);
 void CloseHOG();
-void BeginHOGProcessing(unsigned char* hostImage, int minx, int miny, int maxx, int maxy, 
-                               float minScale, float maxScale);
+void BeginHOGProcessing(unsigned char* hostImage, float minScale,
+    float maxScale);
 float* EndHOGProcessing();
 
-void GetHOGParameters(float *cStartScale, float *cEndScale, float *cScaleRatio, int *cScaleCount,
-    int *cPaddingSizeX, int *cPaddingSizeY, int *cPaddedWidth, int *cPaddedHeight,
-    int *cNoOfCellsX, int *cNoOfCellsY, int *cNoOfBlocksX, int *cNoOfBlocksY,
-    int *cNumberOfWindowsX, int *cNumberOfWindowsY,
-    int *cNumberOfBlockPerWindowX, int *cNumberOfBlockPerWindowY);
+void GetHOGParameters();
 
 void GetProcessedImage(unsigned char* hostImage, int imageType);
 

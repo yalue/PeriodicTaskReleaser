@@ -1,5 +1,7 @@
 #ifndef HOG_ENGINE_H
 #define HOG_ENGINE_H
+#include "HOGDefines.h"
+#include "HOGImage.h"
 #include "HOGResult.h"
 
 struct hog {
@@ -29,4 +31,17 @@ struct hog {
 };
 
 extern struct hog HOG;
+
+void InitializeHOG(int iw, int ih, float svmBias, float* svmWeights,
+    int svmWeightsCount);
+
+void FinalizeHOG();
+
+void BeginProcess(HOGImage* hostImage,
+    int _minx, int _miny, int _maxx, int _maxy, float minScale,
+    float maxScale);
+
+void EndProcess();
+
+void GetImage(HOGImage *imageCUDA, ImageType imageType);
 #endif // HOG_ENGINE_H

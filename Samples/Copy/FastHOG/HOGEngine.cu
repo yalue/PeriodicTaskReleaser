@@ -39,44 +39,29 @@ void InitializeHOG(int iw, int ih, float svmBias, float* svmWeights,
   InitHOG(iw, ih);
 }
 
-
-
 void FinalizeHOG() {
   CloseHOG();
 }
 
-void BeginProcess(HOGImage* hostImage,
-    int _minx, int _miny, int _maxx, int _maxy, float minScale, float maxScale)
-{
+void BeginProcess(HOGImage* hostImage, int _minx, int _miny, int _maxx,
+    int _maxy, float minScale, float maxScale) {
   HOG.minX = _minx, HOG.minY = _miny, HOG.maxX = _maxx, HOG.maxY = _maxy;
-
-  if (HOG.minY == -1 && HOG.minY == -1 && HOG.maxX == -1 && HOG.maxY == -1)
-  {
+  if (HOG.minY == -1 && HOG.minY == -1 && HOG.maxX == -1 && HOG.maxY == -1) {
     HOG.minX = 0;
     HOG.minY = 0;
     HOG.maxX = HOG.imageWidth;
     HOG.maxY = HOG.imageHeight;
   }
-
-  BeginHOGProcessing(hostImage->pixels, HOG.minX, HOG.minY, HOG.maxX, HOG.maxY, minScale, maxScale);
+  BeginHOGProcessing(hostImage->pixels, minScale, maxScale);
 }
 
-void EndProcess()
-{
+void EndProcess() {
   char file_name[] = "formattedResults.txt";
-
   HOG.cppResult = EndHOGProcessing();
-
-  GetHOGParameters(&HOG.startScale, &HOG.endScale, &HOG.scaleRatio, &HOG.scaleCount,
-    &HOG.hPaddingSizeX, &HOG.hPaddingSizeY, &HOG.hPaddedWidth, &HOG.hPaddedHeight,
-    &HOG.hNoOfCellsX, &HOG.hNoOfCellsY, &HOG.hNoOfBlocksX, &HOG.hNoOfBlocksY, &HOG.hNumberOfWindowsX,
-    &HOG.hNumberOfWindowsY, &HOG.hNumberOfBlockPerWindowX, &HOG.hNumberOfBlockPerWindowY);
-
+  GetHOGParameters();
   ComputeFormattedResults();
-
   printf("Found %d positive results.\n", HOG.formattedResultsCount);
-
-        SaveResultsToDisk(file_name);
+  SaveResultsToDisk(file_name);
 }
 
 void GetImage(HOGImage *imageCUDA, ImageType imageType)

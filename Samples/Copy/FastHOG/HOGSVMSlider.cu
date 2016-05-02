@@ -102,33 +102,28 @@ __global__ void linearSVMEvaluation(float1* svmScores, float svmBias,
   }
 }
 
-void ResetSVMScores(float1* svmScores)
-{
-  cutilSafeCall(cudaMemset(svmScores, 0, sizeof(float) * scaleCount * hNumberOfWindowsX * hNumberOfWindowsY));
+void ResetSVMScores(float1* svmScores) {
+  cutilSafeCall(cudaMemset(svmScores, 0, sizeof(float) * scaleCount *
+    hNumberOfWindowsX * hNumberOfWindowsY));
 }
 
-void LinearSVMEvaluation(float1* svmScores, float1* blockHistograms, int noHistogramBins,
-             int windowSizeX, int windowSizeY,
-       int cellSizeX, int cellSizeY, int blockSizeX, int blockSizeY,
-       int hogBlockCountX, int hogBlockCountY,
-       int scaleId, int width, int height)
-{
-  rNumberOfWindowsX = (width-windowSizeX)/cellSizeX + 1;
-  rNumberOfWindowsY = (height-windowSizeY)/cellSizeY + 1;
-
-  dim3 threadCount = dim3(noHistogramBins * blockSizeX * hNumberOfBlockPerWindowX);
+void LinearSVMEvaluation(float1* svmScores, float1* blockHistograms,
+    int noHistogramBins, int windowSizeX, int windowSizeY, int cellSizeX,
+    int cellSizeY, int blockSizeX, int blockSizeY, int hogBlockCountX,
+    int hogBlockCountY, int scaleId, int width, int height) {
+  rNumberOfWindowsX = (width - windowSizeX) / cellSizeX + 1;
+  rNumberOfWindowsY = (height - windowSizeY) / cellSizeY + 1;
+  dim3 threadCount = dim3(noHistogramBins * blockSizeX *
+    hNumberOfBlockPerWindowX);
   dim3 blockCount = dim3(rNumberOfWindowsX, rNumberOfWindowsY);
-
-  int alignedBlockDimX = iClosestPowerOfTwo(noHistogramBins * blockSizeX * hNumberOfBlockPerWindowX);
-
+  int alignedBlockDimX = iClosestPowerOfTwo(noHistogramBins * blockSizeX *
+    hNumberOfBlockPerWindowX);
   cutilSafeCall(cudaBindTextureToArray(texSVM, svmArray, channelDescSVM));
-
-  linearSVMEvaluation<<<blockCount, threadCount, noHistogramBins * blockSizeX * hNumberOfBlockPerWindowX * sizeof(float1)>>>
-    (svmScores, svmBias, blockHistograms, noHistogramBins,
-    windowSizeX, windowSizeY, hogBlockCountX, hogBlockCountY, cellSizeX, cellSizeY,
-    hNumberOfBlockPerWindowX, hNumberOfBlockPerWindowY,
-    blockSizeX, blockSizeY, alignedBlockDimX, scaleId, scaleCount,
-    hNumberOfWindowsX, hNumberOfWindowsY, width, height);
-
+  linearSVMEvaluation<<<blockCount, threadCount, noHistogramBins * blockSizeX *
+    hNumberOfBlockPerWindowX * sizeof(float1)>>>(svmScores, svmBias,
+    blockHistograms, noHistogramBins, windowSizeX, windowSizeY, hogBlockCountX,
+    hogBlockCountY, cellSizeX, cellSizeY, hNumberOfBlockPerWindowX,
+    hNumberOfBlockPerWindowY, blockSizeX, blockSizeY, alignedBlockDimX,
+    scaleId, scaleCount, hNumberOfWindowsX, hNumberOfWindowsY, width, height);
   cutilSafeCall(cudaUnbindTexture(texSVM));
 }

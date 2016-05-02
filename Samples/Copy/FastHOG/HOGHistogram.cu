@@ -381,63 +381,49 @@ __global__ void computeBlockHistogramsWithGauss(float2* inputImage, float1* bloc
   }
 }
 
-void ComputeBlockHistogramsWithGauss(float2* inputImage, float1* blockHistograms, int noHistogramBins,
-             int cellSizeX, int cellSizeY, int blockSizeX, int blockSizeY,
-             int windowSizeX, int windowSizeY, int width, int height)
-{
+void ComputeBlockHistogramsWithGauss(float2* inputImage,
+    float1* blockHistograms, int noHistogramBins, int cellSizeX, int cellSizeY,
+    int blockSizeX, int blockSizeY, int windowSizeX, int windowSizeY,
+    int width, int height) {
   int leftoverX;
   int leftoverY;
-
   dim3 hThreadSize, hBlockSize;
-
   rNoOfCellsX = width / cellSizeX;
   rNoOfCellsY = height / cellSizeY;
-
   rNoOfBlocksX = rNoOfCellsX - blockSizeX + 1;
   rNoOfBlocksY = rNoOfCellsY - blockSizeY + 1;
-
   rNumberOfWindowsX = (width-windowSizeX)/cellSizeX + 1;
   rNumberOfWindowsY = (height-windowSizeY)/cellSizeY + 1;
-
-  leftoverX = (width - windowSizeX - cellSizeX * (rNumberOfWindowsX - 1))/2;
-  leftoverY = (height - windowSizeY - cellSizeY * (rNumberOfWindowsY - 1))/2;
-
+  leftoverX = (width - windowSizeX - cellSizeX * (rNumberOfWindowsX - 1)) / 2;
+  leftoverY = (height - windowSizeY - cellSizeY * (rNumberOfWindowsY - 1)) / 2;
   hThreadSize = dim3(cellSizeX, blockSizeX, blockSizeY);
   hBlockSize = dim3(rNoOfBlocksX, rNoOfBlocksY);
-
   cutilSafeCall(cudaBindTextureToArray(texGauss, gaussArray, channelDescGauss));
-
-  computeBlockHistogramsWithGauss<<<hBlockSize, hThreadSize, noHistogramBins * blockSizeX * blockSizeY * cellSizeX * blockSizeY * blockSizeX * sizeof(float) >>>
-    (inputImage, blockHistograms, noHistogramBins, cellSizeX, cellSizeY, blockSizeX, blockSizeY, leftoverX, leftoverY, width, height);
-
+  computeBlockHistogramsWithGauss<<<hBlockSize, hThreadSize, noHistogramBins *
+    blockSizeX * blockSizeY * cellSizeX * blockSizeY * blockSizeX *
+    sizeof(float)>>>(inputImage, blockHistograms, noHistogramBins, cellSizeX,
+    cellSizeY, blockSizeX, blockSizeY, leftoverX, leftoverY, width, height);
   cutilSafeCall(cudaUnbindTexture(texGauss));
 }
 
 void NormalizeBlockHistograms(float1* blockHistograms, int noHistogramBins,
-            int cellSizeX, int cellSizeY, int blockSizeX, int blockSizeY,
-            int width, int height)
-{
+    int cellSizeX, int cellSizeY, int blockSizeX, int blockSizeY, int width,
+    int height) {
   dim3 hThreadSize, hBlockSize;
-
   rNoOfCellsX = width / cellSizeX;
   rNoOfCellsY = height / cellSizeY;
-
   rNoOfBlocksX = rNoOfCellsX - blockSizeX + 1;
   rNoOfBlocksY = rNoOfCellsY - blockSizeY + 1;
-
   hThreadSize = dim3(noHistogramBins, blockSizeX, blockSizeY);
   hBlockSize = dim3(rNoOfBlocksX, rNoOfBlocksY);
-
   int alignedBlockDimX = iClosestPowerOfTwo(noHistogramBins);
   int alignedBlockDimY = iClosestPowerOfTwo(blockSizeX);
   int alignedBlockDimZ = iClosestPowerOfTwo(blockSizeY);
-
-  normalizeBlockHistograms<<<hBlockSize, hThreadSize, noHistogramBins * blockSizeX * blockSizeY * sizeof(float)>>>
-    (blockHistograms, noHistogramBins,
-    rNoOfBlocksX, rNoOfBlocksY, blockSizeX, blockSizeY,
-    alignedBlockDimX, alignedBlockDimY, alignedBlockDimZ,
-    noHistogramBins * rNoOfCellsX, rNoOfCellsY);
-
+  normalizeBlockHistograms<<<hBlockSize, hThreadSize, noHistogramBins *
+    blockSizeX * blockSizeY * sizeof(float)>>>(blockHistograms,
+    noHistogramBins, rNoOfBlocksX, rNoOfBlocksY, blockSizeX, blockSizeY,
+    alignedBlockDimX, alignedBlockDimY, alignedBlockDimZ, noHistogramBins *
+    rNoOfCellsX, rNoOfCellsY);
 }
 
 __global__ void normalizeBlockHistograms(float1 *blockHistograms, int noHistogramBins,

@@ -177,47 +177,53 @@ void CloseHOG()
   cudaThreadExit();
 }
 
-void BeginHOGProcessing(unsigned char* hostImage, int minx, int miny, int maxx, int maxy, float minScale, float maxScale)
-{
+void BeginHOGProcessing(unsigned char* hostImage, float minScale,
+    float maxScale) {
   int i;
-  minX = minx; minY = miny; maxX = maxx; maxY = maxy;
-  PadHostImage((uchar4*)hostImage, paddedRegisteredImage, minX, minY, maxX, maxY);
+  minX = HOG.minX;
+  minY = HOG.minY;
+  maxX = HOG.maxX;
+  maxY = HOG.maxY;
+  PadHostImage((uchar4*)hostImage, paddedRegisteredImage, minX, minY, maxX,
+    maxY);
 
   rPaddedWidth = hPaddedWidth; rPaddedHeight = hPaddedHeight;
   scaleRatio = 1.05f;
   startScale = (minScale < 0.0f) ? 1.0f : minScale;
-  endScale = (maxScale < 0.0f) ? min(hPaddedWidth / (float) hWindowSizeX, hPaddedHeight / (float) hWindowSizeY) : maxScale;
-  scaleCount = (int)floor(logf(endScale/startScale)/logf(scaleRatio)) + 1;
-
+  if (maxScale < 0.0f) {
+    endScale = min(hPaddedWidth / (float) hWindowSizeX, hPaddedHeight /
+      (float) hWindowSizeY);
+  } else {
+    endScale = maxScale;
+  }
+  scaleCount = (int) floor(logf(endScale / startScale) / logf(scaleRatio)) + 1;
   float currentScale = startScale;
-
   ResetSVMScores(svmScores);
-
-  for (i=0; i<scaleCount; i++)
-  {
-    DownscaleImage(0, scaleCount, i, currentScale, hUseGrayscale, paddedRegisteredImage, resizedPaddedImageF1, resizedPaddedImageF4);
-
+  for (i = 0; i < scaleCount; i++) {
+    DownscaleImage(0, scaleCount, i, currentScale, hUseGrayscale,
+      paddedRegisteredImage, resizedPaddedImageF1, resizedPaddedImageF4);
     SetConvolutionSize(rPaddedWidth, rPaddedHeight);
-
-    if(hUseGrayscale) ComputeColorGradients1to2(resizedPaddedImageF1, colorGradientsF2);
-    else ComputeColorGradients4to2(resizedPaddedImageF4, colorGradientsF2);
-
-    ComputeBlockHistogramsWithGauss(colorGradientsF2, blockHistograms, hNoHistogramBins,
-      hCellSizeX, hCellSizeY, hBlockSizeX, hBlockSizeY, hWindowSizeX, hWindowSizeY,  rPaddedWidth, rPaddedHeight);
-
-    NormalizeBlockHistograms(blockHistograms, hNoHistogramBins, hCellSizeX, hCellSizeY, hBlockSizeX, hBlockSizeY, rPaddedWidth, rPaddedHeight);
-
-    LinearSVMEvaluation(svmScores, blockHistograms, hNoHistogramBins, hWindowSizeX, hWindowSizeY, hCellSizeX, hCellSizeY,
-      hBlockSizeX, hBlockSizeY, rNoOfBlocksX, rNoOfBlocksY, i, rPaddedWidth, rPaddedHeight);
-
+    if (hUseGrayscale) {
+      ComputeColorGradients1to2(resizedPaddedImageF1, colorGradientsF2);
+    } else {
+      ComputeColorGradients4to2(resizedPaddedImageF4, colorGradientsF2);
+    }
+    ComputeBlockHistogramsWithGauss(colorGradientsF2, blockHistograms,
+      hNoHistogramBins, hCellSizeX, hCellSizeY, hBlockSizeX, hBlockSizeY,
+      hWindowSizeX, hWindowSizeY,  rPaddedWidth, rPaddedHeight);
+    NormalizeBlockHistograms(blockHistograms, hNoHistogramBins, hCellSizeX,
+      hCellSizeY, hBlockSizeX, hBlockSizeY, rPaddedWidth, rPaddedHeight);
+    LinearSVMEvaluation(svmScores, blockHistograms, hNoHistogramBins,
+      hWindowSizeX, hWindowSizeY, hCellSizeX, hCellSizeY, hBlockSizeX,
+      hBlockSizeY, rNoOfBlocksX, rNoOfBlocksY, i, rPaddedWidth, rPaddedHeight);
     currentScale *= scaleRatio;
   }
 }
 
-float* EndHOGProcessing()
-{
+float* EndHOGProcessing() {
   cudaThreadSynchronize();
-  cutilSafeCall(cudaMemcpy(hResult, svmScores, sizeof(float) * scaleCount * hNumberOfWindowsX * hNumberOfWindowsY, cudaMemcpyDeviceToHost));
+  cutilSafeCall(cudaMemcpy(hResult, svmScores, sizeof(float) * scaleCount *
+    hNumberOfWindowsX * hNumberOfWindowsY, cudaMemcpyDeviceToHost));
   return hResult;
 }
 
@@ -249,28 +255,23 @@ void GetProcessedImage(unsigned char* hostImage, int imageType)
   //cutilSafeCall(cudaMemcpy(hostImage, paddedRegisteredImage, sizeof(uchar4) * hPaddedWidth * hPaddedHeight, cudaMemcpyDeviceToHost));
 }
 
-void GetHOGParameters(float *cStartScale, float *cEndScale, float *cScaleRatio, int *cScaleCount,
-          int *cPaddingSizeX, int *cPaddingSizeY, int *cPaddedWidth, int *cPaddedHeight,
-          int *cNoOfCellsX, int *cNoOfCellsY, int *cNoOfBlocksX, int *cNoOfBlocksY,
-          int *cNumberOfWindowsX, int *cNumberOfWindowsY,
-          int *cNumberOfBlockPerWindowX, int *cNumberOfBlockPerWindowY)
-{
-  *cStartScale = startScale;
-  *cEndScale = endScale;
-  *cScaleRatio = scaleRatio;
-  *cScaleCount = scaleCount;
-  *cPaddingSizeX = hPaddingSizeX;
-  *cPaddingSizeY = hPaddingSizeY;
-  *cPaddedWidth = hPaddedWidth;
-  *cPaddedHeight = hPaddedHeight;
-  *cNoOfCellsX = hNoOfCellsX;
-  *cNoOfCellsY = hNoOfCellsY;
-  *cNoOfBlocksX = hNoOfBlocksX;
-  *cNoOfBlocksY = hNoOfBlocksY;
-  *cNumberOfWindowsX = hNumberOfWindowsX;
-  *cNumberOfWindowsY = hNumberOfWindowsY;
-  *cNumberOfBlockPerWindowX = hNumberOfBlockPerWindowX;
-  *cNumberOfBlockPerWindowY = hNumberOfBlockPerWindowY;
+void GetHOGParameters() {
+  HOG.startScale = startScale;
+  HOG.endScale = endScale;
+  HOG.scaleRatio = scaleRatio;
+  HOG.scaleCount = scaleCount;
+  HOG.hPaddingSizeX = hPaddingSizeX;
+  HOG.hPaddingSizeY = hPaddingSizeY;
+  HOG.hPaddedWidth = hPaddedWidth;
+  HOG.hPaddedHeight = hPaddedHeight;
+  HOG.hNoOfCellsX = hNoOfCellsX;
+  HOG.hNoOfCellsY = hNoOfCellsY;
+  HOG.hNoOfBlocksX = hNoOfBlocksX;
+  HOG.hNoOfBlocksY = hNoOfBlocksY;
+  HOG.hNumberOfWindowsX = hNumberOfWindowsX;
+  HOG.hNumberOfWindowsY = hNumberOfWindowsY;
+  HOG.hNumberOfBlockPerWindowX = hNumberOfBlockPerWindowX;
+  HOG.hNumberOfBlockPerWindowY = hNumberOfBlockPerWindowY;
 }
 
 cudaArray *imageArray2 = 0;

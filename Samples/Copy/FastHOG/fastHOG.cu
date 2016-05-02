@@ -5,16 +5,9 @@
  *      Author: viprad
  */
 #include <stdio.h>
+#include "HOGEngine.h"
 #include "HOGImage.h"
 #include "Others/persondetectorwt.tcc"
-
-extern void InitializeHOG(int iw, int ih, float svmBias, float* svmWeights,
-    int svmWeightsCount);
-extern void BeginProcess(HOGImage* hostImage, int _minx, int _miny, int _maxx,
-    int _maxy, float minScale, float maxScale);
-extern void EndProcess();
-extern void GetImage(HOGImage *imageCUDA, ImageType imageType);
-extern void FinalizeHOG();
 
 HOGImage* image;
 HOGImage* imageCUDA;
