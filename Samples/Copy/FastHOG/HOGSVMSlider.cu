@@ -16,16 +16,16 @@ extern __shared__ float1 allSharedF1[];
 
 float svmBias;
 
-void InitSVM(float _svmBias, float* svmWeights, int svmWeightsCount)
-{
+void InitSVM(float _svmBias, float* svmWeights, int svmWeightsCount) {
   channelDescSVM = cudaCreateChannelDesc<float>();
-  cutilSafeCall(cudaMallocArray(&svmArray, &channelDescSVM, svmWeightsCount, 1));
-  cutilSafeCall(cudaMemcpyToArray(svmArray, 0, 0, svmWeights, svmWeightsCount * sizeof(float), cudaMemcpyHostToDevice));
+  cutilSafeCall(cudaMallocArray(&svmArray, &channelDescSVM, svmWeightsCount,
+    1));
+  cutilSafeCall(cudaMemcpyToArray(svmArray, 0, 0, svmWeights, svmWeightsCount *
+    sizeof(float), cudaMemcpyHostToDevice));
   svmBias = _svmBias;
 }
 
-void CloseSVM()
-{
+void CloseSVM() {
   cutilSafeCall(cudaFreeArray(svmArray));
 }
 

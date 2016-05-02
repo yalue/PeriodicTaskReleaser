@@ -1,6 +1,11 @@
-#include "HOGScale.h"
-#include "HOGUtils.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+#include <cuda_runtime.h>
+#include <cuda.h>
 #include "cutil.h"
+#include "HOGUtils.h"
+#include "HOGScale.h"
 
 extern int rPaddedHeight;
 extern int rPaddedWidth;
@@ -26,58 +31,48 @@ __device__ float g1(float a) { return w2(a) + w3(a); }
 __device__ float h0(float a) { return -1.0f + w1(a) / (w0(a) + w1(a)) + 0.5f; }
 __device__ float h1(float a) { return 1.0f + w3(a) / (w2(a) + w3(a)) + 0.5f; }
 
-void InitScale(int hPaddedWidth, int hPaddedHeight)
-{
+void InitScale(int hPaddedWidth, int hPaddedHeight) {
   channelDescDownscale = cudaCreateChannelDesc<float4>();
   tex.filterMode = cudaFilterModeLinear;
   tex.normalized = false;
   isAlocated = false;
 }
 
-void CloseScale()
-{
-  //if (isAlocated) cutilSafeCall(cudaFreeArray(imageArray));
-}
+void CloseScale() {}
 
-void DownscaleImage(int startScaleId, int endScaleId, int scaleId, float scale, 
-        bool useGrayscale, float4* paddedRegisteredImage,
-       float1* resizedPaddedImageF1, float4* resizedPaddedImageF4)
-{
+void DownscaleImage(int startScaleId, int endScaleId, int scaleId, float scale,
+    bool useGrayscale, float4* paddedRegisteredImage,
+    float1* resizedPaddedImageF1, float4* resizedPaddedImageF4) {
   dim3 hThreadSize, hBlockSize;
-
   hThreadSize = dim3(THREAD_SIZE_W, THREAD_SIZE_H);
-
   rPaddedWidth = iDivUpF(hPaddedWidth, scale);
   rPaddedHeight = iDivUpF(hPaddedHeight, scale);
-
-  hBlockSize = dim3(iDivUp(rPaddedWidth, hThreadSize.x), iDivUp(rPaddedHeight, hThreadSize.y));
-
-  if (scaleId == startScaleId)
-  {
-    if (isAlocated)
-      cutilSafeCall(cudaFreeArray(imageArray));
-    cutilSafeCall(cudaMallocArray(&imageArray, &channelDescDownscale, hPaddedWidth, hPaddedHeight) );
-    cutilSafeCall(cudaMemcpyToArray(imageArray, 0, 0, paddedRegisteredImage, sizeof(float4) * hPaddedWidth * hPaddedHeight, cudaMemcpyDeviceToDevice));
+  hBlockSize = dim3(iDivUp(rPaddedWidth, hThreadSize.x), iDivUp(rPaddedHeight,
+    hThreadSize.y));
+  if (scaleId == startScaleId) {
+    if (isAlocated) cutilSafeCall(cudaFreeArray(imageArray));
+    cutilSafeCall(cudaMallocArray(&imageArray, &channelDescDownscale, hPaddedWidth,
+      hPaddedHeight));
+    cutilSafeCall(cudaMemcpyToArray(imageArray, 0, 0, paddedRegisteredImage,
+      sizeof(float4) * hPaddedWidth * hPaddedHeight,
+      cudaMemcpyDeviceToDevice));
     isAlocated = true;
   }
-
   cutilSafeCall(cudaBindTextureToArray(tex, imageArray, channelDescDownscale));
 
-  if (useGrayscale)
-  {
-    cutilSafeCall(cudaMemset(resizedPaddedImageF1, 0, hPaddedWidth * hPaddedHeight * sizeof(float1)));
-    resizeFastBicubic1<<<hBlockSize, hThreadSize>>>(resizedPaddedImageF1, paddedRegisteredImage, rPaddedWidth, rPaddedHeight, scale);
+  if (useGrayscale) {
+    cutilSafeCall(cudaMemset(resizedPaddedImageF1, 0, hPaddedWidth *
+      hPaddedHeight * sizeof(float1)));
+    resizeFastBicubic1<<<hBlockSize, hThreadSize>>>(resizedPaddedImageF1,
+      paddedRegisteredImage, rPaddedWidth, rPaddedHeight, scale);
+  } else {
+    cutilSafeCall(cudaMemset(resizedPaddedImageF4, 0, hPaddedWidth *
+      hPaddedHeight * sizeof(float4)));
+    resizeFastBicubic4<<<hBlockSize, hThreadSize>>>(resizedPaddedImageF4,
+      paddedRegisteredImage, rPaddedWidth, rPaddedHeight, scale);
   }
-  else
-  {
-    cutilSafeCall(cudaMemset(resizedPaddedImageF4, 0, hPaddedWidth * hPaddedHeight * sizeof(float4)));
-    resizeFastBicubic4<<<hBlockSize, hThreadSize>>>(resizedPaddedImageF4, paddedRegisteredImage, rPaddedWidth, rPaddedHeight, scale);
-  }
-
   cutilSafeCall(cudaUnbindTexture(tex));
-
-  if (scaleId == endScaleId)
-  {
+  if (scaleId == endScaleId) {
     cutilSafeCall(cudaFreeArray(imageArray));
     isAlocated = false;
   }

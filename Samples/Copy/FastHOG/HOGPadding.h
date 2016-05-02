@@ -1,12 +1,5 @@
 #ifndef __HOG_PADDING__
 #define __HOG_PADDING__
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-
-#include <cuda_runtime.h>
-#include <cuda.h>
 #include "HOGDefines.h"
 
 void InitPadding(int hPaddedWidth, int hPaddedHeight);
