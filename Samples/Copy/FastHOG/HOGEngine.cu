@@ -46,146 +46,146 @@ void FinalizeHOG() {
 }
 
 void BeginProcess(HOGImage* hostImage,
-		int _minx, int _miny, int _maxx, int _maxy, float minScale, float maxScale)
+    int _minx, int _miny, int _maxx, int _maxy, float minScale, float maxScale)
 {
-	HOG.minX = _minx, HOG.minY = _miny, HOG.maxX = _maxx, HOG.maxY = _maxy;
+  HOG.minX = _minx, HOG.minY = _miny, HOG.maxX = _maxx, HOG.maxY = _maxy;
 
-	if (HOG.minY == -1 && HOG.minY == -1 && HOG.maxX == -1 && HOG.maxY == -1)
-	{
-		HOG.minX = 0;
-		HOG.minY = 0;
-		HOG.maxX = HOG.imageWidth;
-		HOG.maxY = HOG.imageHeight;
-	}
+  if (HOG.minY == -1 && HOG.minY == -1 && HOG.maxX == -1 && HOG.maxY == -1)
+  {
+    HOG.minX = 0;
+    HOG.minY = 0;
+    HOG.maxX = HOG.imageWidth;
+    HOG.maxY = HOG.imageHeight;
+  }
 
-	BeginHOGProcessing(hostImage->pixels, HOG.minX, HOG.minY, HOG.maxX, HOG.maxY, minScale, maxScale);
+  BeginHOGProcessing(hostImage->pixels, HOG.minX, HOG.minY, HOG.maxX, HOG.maxY, minScale, maxScale);
 }
 
 void EndProcess()
 {
   char file_name[] = "formattedResults.txt";
 
-	HOG.cppResult = EndHOGProcessing();
+  HOG.cppResult = EndHOGProcessing();
 
-	GetHOGParameters(&HOG.startScale, &HOG.endScale, &HOG.scaleRatio, &HOG.scaleCount,
-		&HOG.hPaddingSizeX, &HOG.hPaddingSizeY, &HOG.hPaddedWidth, &HOG.hPaddedHeight,
-		&HOG.hNoOfCellsX, &HOG.hNoOfCellsY, &HOG.hNoOfBlocksX, &HOG.hNoOfBlocksY, &HOG.hNumberOfWindowsX,
-		&HOG.hNumberOfWindowsY, &HOG.hNumberOfBlockPerWindowX, &HOG.hNumberOfBlockPerWindowY);
+  GetHOGParameters(&HOG.startScale, &HOG.endScale, &HOG.scaleRatio, &HOG.scaleCount,
+    &HOG.hPaddingSizeX, &HOG.hPaddingSizeY, &HOG.hPaddedWidth, &HOG.hPaddedHeight,
+    &HOG.hNoOfCellsX, &HOG.hNoOfCellsY, &HOG.hNoOfBlocksX, &HOG.hNoOfBlocksY, &HOG.hNumberOfWindowsX,
+    &HOG.hNumberOfWindowsY, &HOG.hNumberOfBlockPerWindowX, &HOG.hNumberOfBlockPerWindowY);
 
-	ComputeFormattedResults();
+  ComputeFormattedResults();
 
-	printf("Found %d positive results.\n", HOG.formattedResultsCount);
+  printf("Found %d positive results.\n", HOG.formattedResultsCount);
 
         SaveResultsToDisk(file_name);
 }
 
 void GetImage(HOGImage *imageCUDA, ImageType imageType)
 {
-	switch (imageType)
-	{
-	case IMAGE_RESIZED:
-		GetProcessedImage(imageCUDA->pixels, 0);
-		break;
-	case IMAGE_COLOR_GRADIENTS:
-		GetProcessedImage(imageCUDA->pixels, 1);
-		break;
-	case IMAGE_GRADIENT_ORIENTATIONS:
-		GetProcessedImage(imageCUDA->pixels, 2);
-		break;
-	case IMAGE_PADDED:
-		GetProcessedImage(imageCUDA->pixels, 3);
-		break;
-	case IMAGE_ROI:
-		GetProcessedImage(imageCUDA->pixels, 4);
-		break;
-	}
+  switch (imageType)
+  {
+  case IMAGE_RESIZED:
+    GetProcessedImage(imageCUDA->pixels, 0);
+    break;
+  case IMAGE_COLOR_GRADIENTS:
+    GetProcessedImage(imageCUDA->pixels, 1);
+    break;
+  case IMAGE_GRADIENT_ORIENTATIONS:
+    GetProcessedImage(imageCUDA->pixels, 2);
+    break;
+  case IMAGE_PADDED:
+    GetProcessedImage(imageCUDA->pixels, 3);
+    break;
+  case IMAGE_ROI:
+    GetProcessedImage(imageCUDA->pixels, 4);
+    break;
+  }
 }
 
 void SaveResultsToDisk(char* fileName)
 {
-	FILE* f; 
-	f = fopen(fileName, "w+");
-	fprintf(f, "%d\n", HOG.formattedResultsCount);
-	for (int i=0; i<HOG.formattedResultsCount; i++)
-	{
-		fprintf(f, "%f %f %d %d %d %d %d %d\n",
-			HOG.formattedResults[i].scale, HOG.formattedResults[i].score,
-			HOG.formattedResults[i].width, HOG.formattedResults[i].height,
-			HOG.formattedResults[i].x, HOG.formattedResults[i].y,
-			HOG.formattedResults[i].origX, HOG.formattedResults[i].origY);
-	}
-	fclose(f);
+  FILE* f; 
+  f = fopen(fileName, "w+");
+  fprintf(f, "%d\n", HOG.formattedResultsCount);
+  for (int i=0; i<HOG.formattedResultsCount; i++)
+  {
+    fprintf(f, "%f %f %d %d %d %d %d %d\n",
+      HOG.formattedResults[i].scale, HOG.formattedResults[i].score,
+      HOG.formattedResults[i].width, HOG.formattedResults[i].height,
+      HOG.formattedResults[i].x, HOG.formattedResults[i].y,
+      HOG.formattedResults[i].origX, HOG.formattedResults[i].origY);
+  }
+  fclose(f);
 }
 
 void ComputeFormattedResults()
 {
-	int i, j, k, resultId;
-	int leftoverX, leftoverY, currentWidth, currentHeight, rNumberOfWindowsX, rNumberOfWindowsY;
+  int i, j, k, resultId;
+  int leftoverX, leftoverY, currentWidth, currentHeight, rNumberOfWindowsX, rNumberOfWindowsY;
 
-	resultId = 0;
-	HOG.formattedResultsCount = 0;
+  resultId = 0;
+  HOG.formattedResultsCount = 0;
 
-	float* currentScaleWOffset;
-	float currentScale = HOG.startScale;
+  float* currentScaleWOffset;
+  float currentScale = HOG.startScale;
 
-	for (i=0; i<HOG.scaleCount; i++)
-	{
-		currentScaleWOffset = HOG.cppResult + i * HOG.hNumberOfWindowsX * HOG.hNumberOfWindowsY;
+  for (i=0; i<HOG.scaleCount; i++)
+  {
+    currentScaleWOffset = HOG.cppResult + i * HOG.hNumberOfWindowsX * HOG.hNumberOfWindowsY;
 
-		for (j = 0; j < HOG.hNumberOfWindowsY; j++)
-		{
-			for (k = 0; k < HOG.hNumberOfWindowsX; k++)
-			{
-				float score = currentScaleWOffset[k + j * HOG.hNumberOfWindowsX];
-				if (score > 0)
-					HOG.formattedResultsCount++;
-			}
-		}
-	}
+    for (j = 0; j < HOG.hNumberOfWindowsY; j++)
+    {
+      for (k = 0; k < HOG.hNumberOfWindowsX; k++)
+      {
+        float score = currentScaleWOffset[k + j * HOG.hNumberOfWindowsX];
+        if (score > 0)
+          HOG.formattedResultsCount++;
+      }
+    }
+  }
 
-	for (i=0; (i<HOG.scaleCount) && (resultId<MAX_RESULTS); i++)
-	{
-		currentScaleWOffset = HOG.cppResult + i * HOG.hNumberOfWindowsX * HOG.hNumberOfWindowsY;
+  for (i=0; (i<HOG.scaleCount) && (resultId<MAX_RESULTS); i++)
+  {
+    currentScaleWOffset = HOG.cppResult + i * HOG.hNumberOfWindowsX * HOG.hNumberOfWindowsY;
 
-		for (j=0; j<HOG.hNumberOfWindowsY; j++)
-		{
-			for (k=0; k<HOG.hNumberOfWindowsX; k++)
-			{
-				float score = currentScaleWOffset[k + j * HOG.hNumberOfWindowsX];
-				if (score > 0)
-				{
-					currentWidth = iDivUpF(HOG.hPaddedWidth, currentScale);
-					currentHeight = iDivUpF(HOG.hPaddedHeight, currentScale);
+    for (j=0; j<HOG.hNumberOfWindowsY; j++)
+    {
+      for (k=0; k<HOG.hNumberOfWindowsX; k++)
+      {
+        float score = currentScaleWOffset[k + j * HOG.hNumberOfWindowsX];
+        if (score > 0)
+        {
+          currentWidth = iDivUpF(HOG.hPaddedWidth, currentScale);
+          currentHeight = iDivUpF(HOG.hPaddedHeight, currentScale);
 
-					rNumberOfWindowsX = (currentWidth - HOG.hWindowSizeX) / HOG.hCellSizeX + 1;
-					rNumberOfWindowsY = (currentHeight - HOG.hWindowSizeY) / HOG.hCellSizeY + 1;
+          rNumberOfWindowsX = (currentWidth - HOG.hWindowSizeX) / HOG.hCellSizeX + 1;
+          rNumberOfWindowsY = (currentHeight - HOG.hWindowSizeY) / HOG.hCellSizeY + 1;
 
-					leftoverX = (currentWidth - HOG.hWindowSizeX - HOG.hCellSizeX * (rNumberOfWindowsX - 1)) / 2;
-					leftoverY = (currentHeight - HOG.hWindowSizeY - HOG.hCellSizeY * (rNumberOfWindowsY - 1)) / 2;
+          leftoverX = (currentWidth - HOG.hWindowSizeX - HOG.hCellSizeX * (rNumberOfWindowsX - 1)) / 2;
+          leftoverY = (currentHeight - HOG.hWindowSizeY - HOG.hCellSizeY * (rNumberOfWindowsY - 1)) / 2;
 
-					HOG.formattedResults[resultId].origX = k * HOG.hCellSizeX + leftoverX;
-					HOG.formattedResults[resultId].origY = j * HOG.hCellSizeY + leftoverY;
+          HOG.formattedResults[resultId].origX = k * HOG.hCellSizeX + leftoverX;
+          HOG.formattedResults[resultId].origY = j * HOG.hCellSizeY + leftoverY;
 
-					HOG.formattedResults[resultId].width = (int)floorf((float)HOG.hWindowSizeX * currentScale);
-					HOG.formattedResults[resultId].height = (int)floorf((float)HOG.hWindowSizeY * currentScale);
+          HOG.formattedResults[resultId].width = (int)floorf((float)HOG.hWindowSizeX * currentScale);
+          HOG.formattedResults[resultId].height = (int)floorf((float)HOG.hWindowSizeY * currentScale);
 
-					HOG.formattedResults[resultId].x = (int)ceilf(currentScale * 
+          HOG.formattedResults[resultId].x = (int)ceilf(currentScale * 
                                                                        (HOG.formattedResults[resultId].origX + HOG.hWindowSizeX / 2) - 
                                                                        (float) HOG.hWindowSizeX * currentScale / 2) - 
                                                                        HOG.hPaddingSizeX + HOG.minX;
-					HOG.formattedResults[resultId].y = (int)ceilf(currentScale * 
+          HOG.formattedResults[resultId].y = (int)ceilf(currentScale * 
                                                                        (HOG.formattedResults[resultId].origY + HOG.hWindowSizeY / 2) - 
                                                                        (float) HOG.hWindowSizeY * currentScale / 2) - 
                                                                        HOG.hPaddingSizeY + HOG.minY;
 
-					HOG.formattedResults[resultId].scale = currentScale;
-					HOG.formattedResults[resultId].score = score;
+          HOG.formattedResults[resultId].scale = currentScale;
+          HOG.formattedResults[resultId].score = score;
 
-					resultId++;
-				}
-			}
-		}
+          resultId++;
+        }
+      }
+    }
 
-		currentScale = currentScale * HOG.scaleRatio;
-	}
+    currentScale = currentScale * HOG.scaleRatio;
+  }
 }

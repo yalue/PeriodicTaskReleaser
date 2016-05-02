@@ -68,11 +68,11 @@
 #endif
 
 #ifndef MAX_BLOCKS_PER_DIM
-#define MAX_BLOCKS_PER_DIM	65536
+#define MAX_BLOCKS_PER_DIM  65536
 #endif
 
 #ifndef MAX_RESULTS
-#define MAX_RESULTS	1000
+#define MAX_RESULTS  1000
 #endif
 
 #ifndef IMUL

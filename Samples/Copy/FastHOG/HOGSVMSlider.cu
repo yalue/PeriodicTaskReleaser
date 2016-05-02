@@ -18,117 +18,117 @@ float svmBias;
 
 void InitSVM(float _svmBias, float* svmWeights, int svmWeightsCount)
 {
-	channelDescSVM = cudaCreateChannelDesc<float>();
-	cutilSafeCall(cudaMallocArray(&svmArray, &channelDescSVM, svmWeightsCount, 1));
-	cutilSafeCall(cudaMemcpyToArray(svmArray, 0, 0, svmWeights, svmWeightsCount * sizeof(float), cudaMemcpyHostToDevice));
-	svmBias = _svmBias;
+  channelDescSVM = cudaCreateChannelDesc<float>();
+  cutilSafeCall(cudaMallocArray(&svmArray, &channelDescSVM, svmWeightsCount, 1));
+  cutilSafeCall(cudaMemcpyToArray(svmArray, 0, 0, svmWeights, svmWeightsCount * sizeof(float), cudaMemcpyHostToDevice));
+  svmBias = _svmBias;
 }
 
 void CloseSVM()
 {
-	cutilSafeCall(cudaFreeArray(svmArray));
+  cutilSafeCall(cudaFreeArray(svmArray));
 }
 
 __global__ void linearSVMEvaluation(float1* svmScores, float svmBias,
-				    float1* blockHistograms, int noHistogramBins,
-				    int windowSizeX, int windowSizeY, int hogBlockCountX, int hogBlockCountY,
-				    int cellSizeX, int cellSizeY,
-				    int numberOfBlockPerWindowX, int numberOfBlockPerWindowY,
-				    int blockSizeX, int blockSizeY,
-				    int alignedBlockDimX,
-				    int scaleId, int scaleCount,
-				    int hNumberOfWindowsX, int hNumberOfWindowsY,
-				    int width, int height)
+            float1* blockHistograms, int noHistogramBins,
+            int windowSizeX, int windowSizeY, int hogBlockCountX, int hogBlockCountY,
+            int cellSizeX, int cellSizeY,
+            int numberOfBlockPerWindowX, int numberOfBlockPerWindowY,
+            int blockSizeX, int blockSizeY,
+            int alignedBlockDimX,
+            int scaleId, int scaleCount,
+            int hNumberOfWindowsX, int hNumberOfWindowsY,
+            int width, int height)
 {
-	int i;
-	int texPos;
-	float1 localValue;
-	float texValue;
+  int i;
+  int texPos;
+  float1 localValue;
+  float texValue;
 
-	float1* smem = (float1*) allSharedF1;
+  float1* smem = (float1*) allSharedF1;
 
-	int gmemPosWindow, gmemPosInWindow, gmemPosInWindowDown, smemLocalPos, smemTargetPos;
-	int gmemStride = hogBlockCountX * noHistogramBins * blockSizeX;
+  int gmemPosWindow, gmemPosInWindow, gmemPosInWindowDown, smemLocalPos, smemTargetPos;
+  int gmemStride = hogBlockCountX * noHistogramBins * blockSizeX;
 
-	gmemPosWindow = blockIdx.x * noHistogramBins * blockSizeX + blockIdx.y * blockSizeY * gmemStride;
-	gmemPosInWindow = gmemPosWindow + threadIdx.x;
-	smemLocalPos = threadIdx.x;
+  gmemPosWindow = blockIdx.x * noHistogramBins * blockSizeX + blockIdx.y * blockSizeY * gmemStride;
+  gmemPosInWindow = gmemPosWindow + threadIdx.x;
+  smemLocalPos = threadIdx.x;
 
-	int val1 = (blockSizeY * blockSizeX * noHistogramBins) * numberOfBlockPerWindowY;
-	int val2 = blockSizeX * noHistogramBins;
-	localValue.x = 0;
+  int val1 = (blockSizeY * blockSizeX * noHistogramBins) * numberOfBlockPerWindowY;
+  int val2 = blockSizeX * noHistogramBins;
+  localValue.x = 0;
 
-	if (blockIdx.x == 10 && blockIdx.y == 8)
-	{
-		int asasasa;
-		asasasa = 0;
-		asasasa++;
-	}
+  if (blockIdx.x == 10 && blockIdx.y == 8)
+  {
+    int asasasa;
+    asasasa = 0;
+    asasasa++;
+  }
 
-	for (i = 0; i<blockSizeY * numberOfBlockPerWindowY; i++)
-	{
-		gmemPosInWindowDown = gmemPosInWindow + i * gmemStride;
-		texPos = threadIdx.x % val2 + i * val2 + threadIdx.x / val2 * val1;
-		texValue =  tex1D(texSVM, texPos);
-		localValue.x += blockHistograms[gmemPosInWindowDown].x * texValue;
-	}
+  for (i = 0; i<blockSizeY * numberOfBlockPerWindowY; i++)
+  {
+    gmemPosInWindowDown = gmemPosInWindow + i * gmemStride;
+    texPos = threadIdx.x % val2 + i * val2 + threadIdx.x / val2 * val1;
+    texValue =  tex1D(texSVM, texPos);
+    localValue.x += blockHistograms[gmemPosInWindowDown].x * texValue;
+  }
 
-	smem[smemLocalPos] = localValue;
+  smem[smemLocalPos] = localValue;
 
-	__syncthreads();
+  __syncthreads();
 
-	for(unsigned int s = alignedBlockDimX >> 1; s>0; s>>=1)
-	{
-		if (threadIdx.x < s && (threadIdx.x + s) < blockDim.x)
-		{
-			smemTargetPos = threadIdx.x + s;
-			smem[smemLocalPos].x += smem[smemTargetPos].x;
-		}
+  for(unsigned int s = alignedBlockDimX >> 1; s>0; s>>=1)
+  {
+    if (threadIdx.x < s && (threadIdx.x + s) < blockDim.x)
+    {
+      smemTargetPos = threadIdx.x + s;
+      smem[smemLocalPos].x += smem[smemTargetPos].x;
+    }
 
-		__syncthreads();
-	}
+    __syncthreads();
+  }
 
-	if (threadIdx.x == 0)
-	{
-		smem[smemLocalPos].x -= svmBias;
-		svmScores[blockIdx.x + blockIdx.y * hNumberOfWindowsX + scaleId * hNumberOfWindowsX * hNumberOfWindowsY] = smem[smemLocalPos];
-	}
+  if (threadIdx.x == 0)
+  {
+    smem[smemLocalPos].x -= svmBias;
+    svmScores[blockIdx.x + blockIdx.y * hNumberOfWindowsX + scaleId * hNumberOfWindowsX * hNumberOfWindowsY] = smem[smemLocalPos];
+  }
 
-	if (blockIdx.x == 10 && blockIdx.y == 8)
-	{
-		int asasasa;
-		asasasa = 0;
-		asasasa++;
-	}
+  if (blockIdx.x == 10 && blockIdx.y == 8)
+  {
+    int asasasa;
+    asasasa = 0;
+    asasasa++;
+  }
 }
 
 void ResetSVMScores(float1* svmScores)
 {
-	cutilSafeCall(cudaMemset(svmScores, 0, sizeof(float) * scaleCount * hNumberOfWindowsX * hNumberOfWindowsY));
+  cutilSafeCall(cudaMemset(svmScores, 0, sizeof(float) * scaleCount * hNumberOfWindowsX * hNumberOfWindowsY));
 }
 
 void LinearSVMEvaluation(float1* svmScores, float1* blockHistograms, int noHistogramBins,
-		         int windowSizeX, int windowSizeY,
-			 int cellSizeX, int cellSizeY, int blockSizeX, int blockSizeY,
-			 int hogBlockCountX, int hogBlockCountY,
-			 int scaleId, int width, int height)
+             int windowSizeX, int windowSizeY,
+       int cellSizeX, int cellSizeY, int blockSizeX, int blockSizeY,
+       int hogBlockCountX, int hogBlockCountY,
+       int scaleId, int width, int height)
 {
-	rNumberOfWindowsX = (width-windowSizeX)/cellSizeX + 1;
-	rNumberOfWindowsY = (height-windowSizeY)/cellSizeY + 1;
+  rNumberOfWindowsX = (width-windowSizeX)/cellSizeX + 1;
+  rNumberOfWindowsY = (height-windowSizeY)/cellSizeY + 1;
 
-	dim3 threadCount = dim3(noHistogramBins * blockSizeX * hNumberOfBlockPerWindowX);
-	dim3 blockCount = dim3(rNumberOfWindowsX, rNumberOfWindowsY);
+  dim3 threadCount = dim3(noHistogramBins * blockSizeX * hNumberOfBlockPerWindowX);
+  dim3 blockCount = dim3(rNumberOfWindowsX, rNumberOfWindowsY);
 
-	int alignedBlockDimX = iClosestPowerOfTwo(noHistogramBins * blockSizeX * hNumberOfBlockPerWindowX);
+  int alignedBlockDimX = iClosestPowerOfTwo(noHistogramBins * blockSizeX * hNumberOfBlockPerWindowX);
 
-	cutilSafeCall(cudaBindTextureToArray(texSVM, svmArray, channelDescSVM));
+  cutilSafeCall(cudaBindTextureToArray(texSVM, svmArray, channelDescSVM));
 
-	linearSVMEvaluation<<<blockCount, threadCount, noHistogramBins * blockSizeX * hNumberOfBlockPerWindowX * sizeof(float1)>>>
-		(svmScores, svmBias, blockHistograms, noHistogramBins,
-		windowSizeX, windowSizeY, hogBlockCountX, hogBlockCountY, cellSizeX, cellSizeY,
-		hNumberOfBlockPerWindowX, hNumberOfBlockPerWindowY,
-		blockSizeX, blockSizeY, alignedBlockDimX, scaleId, scaleCount,
-		hNumberOfWindowsX, hNumberOfWindowsY, width, height);
+  linearSVMEvaluation<<<blockCount, threadCount, noHistogramBins * blockSizeX * hNumberOfBlockPerWindowX * sizeof(float1)>>>
+    (svmScores, svmBias, blockHistograms, noHistogramBins,
+    windowSizeX, windowSizeY, hogBlockCountX, hogBlockCountY, cellSizeX, cellSizeY,
+    hNumberOfBlockPerWindowX, hNumberOfBlockPerWindowY,
+    blockSizeX, blockSizeY, alignedBlockDimX, scaleId, scaleCount,
+    hNumberOfWindowsX, hNumberOfWindowsY, width, height);
 
-	cutilSafeCall(cudaUnbindTexture(texSVM));
+  cutilSafeCall(cudaUnbindTexture(texSVM));
 }
