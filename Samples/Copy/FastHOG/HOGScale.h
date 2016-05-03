@@ -2,8 +2,10 @@
 #define __HOG_SCALE__
 #include "HOGDefines.h"
 
-void InitScale(int hPaddedWidth, int hPaddedHeight);
+void InitScale();
 void CloseScale();
+void DeviceAllocHOGScaleMemory(void);
+void DeviceFreeHOGScaleMemory(void);
 
 void DownscaleImage(int startScaleId, int endScaleId, int scaleId, float scale,
     bool useGrayscale, float4* paddedRegisteredImage,

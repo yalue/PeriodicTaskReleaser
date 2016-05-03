@@ -225,10 +225,14 @@ HOGImage.o:HOGImage.cu
 fastHOG: fastHOG.o HOGEngine.o HOGConvolution.o HOGHistogram.o HOGSVMSlider.o HOGScale.o HOGPadding.o HOGEngineDevice.o HOGUtils.o HOGImage.o
 	$(EXEC) $(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $+ $(LIBRARIES) -lfreeimage
 
+fastHOG.a: fastHOG.o HOGEngine.o HOGConvolution.o HOGHistogram.o HOGSVMSlider.o HOGScale.o HOGPadding.o HOGEngineDevice.o HOGUtils.o HOGImage.o
+	ar rcsv fastHOG.a *.o
+	ranlib fastHOG.a
+
 run: build
 	$(EXEC) ./fastHOG
 
 clean:
-	rm -f fastHOG *.o
+	rm -f fastHOG *.o *.a
 
 clobber: clean

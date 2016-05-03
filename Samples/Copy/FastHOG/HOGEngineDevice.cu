@@ -64,6 +64,7 @@ void DeviceAllocHOGEngineDeviceMemory(void) {
   DeviceAllocHOGHistogramMemory();
   DeviceAllocHOGSVMMemory();
   DeviceAllocHOGPaddingMemory();
+  DeviceAllocHOGScaleMemory();
   cutilSafeCall(cudaMalloc(&paddedRegisteredImage, sizeof(float4) *
     hPaddedWidth * hPaddedHeight));
   if (hUseGrayscale) {
@@ -123,6 +124,7 @@ void DeviceFreeHOGEngineDeviceMemory(void) {
   DeviceFreeHOGHistogramMemory();
   DeviceFreeHOGSVMMemory();
   DeviceFreeHOGPaddingMemory();
+  DeviceFreeHOGScaleMemory();
   if (hUseGrayscale) {
     cutilSafeCall(cudaFree(outputTest1));
   } else {
@@ -185,7 +187,7 @@ void InitHOG(int width, int height) {
   InitHistograms(hCellSizeX, hCellSizeY, hBlockSizeX, hBlockSizeY,
     hNoHistogramBins, HOG.wtScale);
   InitSVM();
-  InitScale(hPaddedWidth, hPaddedHeight);
+  InitScale();
   InitPadding();
   rPaddedWidth = hPaddedWidth;
   rPaddedHeight = hPaddedHeight;
