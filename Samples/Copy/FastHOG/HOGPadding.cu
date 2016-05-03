@@ -16,14 +16,19 @@ extern int avSizeX, avSizeY, marginX, marginY;
 
 uchar4* paddedRegisteredImageU4;
 
-void InitPadding(int hPaddedWidth, int hPaddedHeight) {
+void DeviceAllocHOGPaddingMemory(void) {
   cutilSafeCall(cudaMalloc((void**) &paddedRegisteredImageU4, sizeof(uchar4) *
     hPaddedWidth * hPaddedHeight));
 }
 
-void ClosePadding() {
+void DeviceFreeHOGPaddingMemory(void) {
   cutilSafeCall(cudaFree(paddedRegisteredImageU4));
+  paddedRegisteredImageU4 = NULL;
 }
+
+void InitPadding() {}
+
+void ClosePadding() {}
 
 void PadHostImage(uchar4* registeredImage, float4 *paddedRegisteredImage,
     int minx, int miny, int maxx, int maxy) {

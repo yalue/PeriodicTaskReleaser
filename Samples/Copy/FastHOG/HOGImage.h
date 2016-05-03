@@ -21,6 +21,6 @@ typedef struct hogimage {
   unsigned char* pixels;
 } HOGImage;
 
-HOGImage* HOGImageCUDA(int width, int height);
-HOGImage* HOGImageFile(const char* fileName);
+bool HOGImageFile(const char *fileName, HOGImage *image);
+
 #endif /* HOGIMAGE_H_ */

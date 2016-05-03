@@ -10,20 +10,8 @@
 #include <FreeImage.h>
 #include "HOGImage.h"
 
-HOGImage fromFile;
-HOGImage fromCUDA;
-
-HOGImage* HOGImageCUDA(int width, int height) {
-  fromCUDA.width = width;
-  fromCUDA.height = height;
-  fromCUDA.isLoaded = false;
-  fromCUDA.pixels = (unsigned char*) malloc(sizeof(unsigned char) * 4 * width * height);
-  memset(fromCUDA.pixels, 0, sizeof(unsigned char) * 4 * width * height);
-  return &fromCUDA;
-}
-
-HOGImage* HOGImageFile(const char* fileName) {
-  bool bLoaded = false;
+// Loads the given image file into the HOGImage struct. Returns false on error.
+bool HOGImageFile(const char* fileName, HOGImage *image) {
   int bpp;
   FIBITMAP *bmp = 0;
   FREE_IMAGE_FORMAT fif = FIF_UNKNOWN;
@@ -31,33 +19,34 @@ HOGImage* HOGImageFile(const char* fileName) {
   if (fif == FIF_UNKNOWN) {
     fif = FreeImage_GetFIFFromFilename(fileName);
   }
-  if (fif != FIF_UNKNOWN && FreeImage_FIFSupportsReading(fif)) {
-    bmp = FreeImage_Load(fif, fileName, 0);
-    bLoaded = true;
-    if (bmp == NULL) bLoaded = false;
+  if ((fif == FIF_UNKNOWN) || !FreeImage_FIFSupportsReading(fif)) {
+    image->isLoaded = false;
+    return false;
   }
-  if (!bLoaded) {
-    fromFile.isLoaded = false;
-    return &fromFile;
+  bmp = FreeImage_Load(fif, fileName, 0);
+  if (!bmp) {
+    image->isLoaded = false;
+    return false;
   }
-  fromFile.width = FreeImage_GetWidth(bmp);
-  fromFile.height = FreeImage_GetHeight(bmp);
+  image->width = FreeImage_GetWidth(bmp);
+  image->height = FreeImage_GetHeight(bmp);
   bpp = FreeImage_GetBPP(bmp);
-  switch (bpp) {
-  case 32:
-    break;
-  default:
+  if (bpp != 32) {
     FIBITMAP *bmpTemp = FreeImage_ConvertTo32Bits(bmp);
-    if (bmp != NULL) FreeImage_Unload(bmp);
+    FreeImage_Unload(bmp);
+    if (!bmpTemp) {
+      image->isLoaded = false;
+      return false;
+    }
     bmp = bmpTemp;
     bpp = FreeImage_GetBPP(bmp);
-    break;
   }
-  fromFile.pixels = (unsigned char*) malloc(sizeof(unsigned char) * 4 *
-    fromFile.width * fromFile.height);
-  FreeImage_ConvertToRawBits(fromFile.pixels, bmp, fromFile.width * 4, bpp,
+  image->pixels = (unsigned char*) malloc(sizeof(unsigned char) * 4 *
+    image->width * image->height);
+  FreeImage_ConvertToRawBits(image->pixels, bmp, image->width * 4, bpp,
     FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK, FI_RGBA_BLUE_MASK, true);
-  fromFile.isLoaded = true;
-  return &fromFile;
+  FreeImage_Unload(bmp);
+  image->isLoaded = true;
+  return true;
 }
 

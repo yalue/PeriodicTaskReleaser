@@ -1,16 +1,8 @@
 #ifndef __HOG_SVM_SLIDER__
 #define __HOG_SVM_SLIDER__
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-
-#include <cuda_runtime.h>
-#include <cuda.h>
-
 #include "HOGDefines.h"
 
-void InitSVM(float svmBias, float* svmWeights, int svmWeightsCount);
+void InitSVM();
 void CloseSVM();
 void ResetSVMScores(float1* svmScores);
 void LinearSVMEvaluation(float1* svmScores, float1* blockHistograms, int noHistogramBins,
@@ -28,5 +20,7 @@ __global__ void linearSVMEvaluation(float1* svmScores, float svmBias,
             int scaleId, int scaleCount,
             int hNumberOfWindowsX, int hNumberOfWindowsY, int width, int height);
 
-
+void DeviceAllocHOGSVMMemory(void);
+void CopyInHOGSVM(void);
+void DeviceFreeHOGSVMMemory(void);
 #endif

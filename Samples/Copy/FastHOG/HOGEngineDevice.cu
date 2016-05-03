@@ -1,3 +1,8 @@
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include "cutil.h"
 #include "HOGConvolution.h"
 #include "HOGEngine.h"
@@ -54,6 +59,77 @@ int avSizeX, avSizeY, marginX, marginY;
 
 extern uchar4* paddedRegisteredImageU4;
 
+void DeviceAllocHOGEngineDeviceMemory(void) {
+  DeviceAllocHOGConvolutionMemory();
+  DeviceAllocHOGHistogramMemory();
+  DeviceAllocHOGSVMMemory();
+  DeviceAllocHOGPaddingMemory();
+  cutilSafeCall(cudaMalloc(&paddedRegisteredImage, sizeof(float4) *
+    hPaddedWidth * hPaddedHeight));
+  if (hUseGrayscale) {
+    cutilSafeCall(cudaMalloc(&resizedPaddedImageF1, sizeof(float1) *
+      hPaddedWidth * hPaddedHeight));
+  } else {
+    cutilSafeCall(cudaMalloc(&resizedPaddedImageF4, sizeof(float4) *
+      hPaddedWidth * hPaddedHeight));
+  }
+  cutilSafeCall(cudaMalloc(&colorGradientsF2, sizeof(float2) * hPaddedWidth *
+    hPaddedHeight));
+  cutilSafeCall(cudaMalloc(&blockHistograms, sizeof(float1) * hNoOfBlocksX *
+    hNoOfBlocksY * hCellSizeX * hCellSizeY * hNoHistogramBins));
+  cutilSafeCall(cudaMalloc(&cellHistograms, sizeof(float1) * hNoOfCellsX *
+    hNoOfCellsY * hNoHistogramBins));
+  cutilSafeCall(cudaMalloc(&svmScores, sizeof(float1) * hNumberOfWindowsX *
+    hNumberOfWindowsY * scaleCount));
+  if (hUseGrayscale) {
+    cutilSafeCall(cudaMalloc(&outputTest1, sizeof(uchar1) * hPaddedWidth *
+      hPaddedHeight));
+  } else {
+    cutilSafeCall(cudaMalloc(&outputTest4, sizeof(uchar4) * hPaddedWidth *
+      hPaddedHeight));
+  }
+}
+
+void HostAllocHOGEngineDeviceMemory(void) {
+  HostAllocHOGHistogramMemory();
+  cutilSafeCall(cudaMallocHost(&hResult, sizeof(float) * hNumberOfWindowsX *
+    hNumberOfWindowsY * scaleCount));
+}
+
+void CopyInHOGEngineDevice(void) {
+  CopyInHOGConvolution();
+  CopyInHOGHistogram();
+  CopyInHOGSVM();
+}
+
+void HostFreeHOGEngineDeviceMemory(void) {
+  cutilSafeCall(cudaFreeHost(hResult));
+  hResult = NULL;
+  HostFreeHOGHistogramMemory();
+}
+
+void DeviceFreeHOGEngineDeviceMemory(void) {
+  cutilSafeCall(cudaFree(paddedRegisteredImage));
+  if (hUseGrayscale) {
+    cutilSafeCall(cudaFree(resizedPaddedImageF1));
+  } else {
+    cutilSafeCall(cudaFree(resizedPaddedImageF4));
+  }
+  cutilSafeCall(cudaFree(colorGradientsF2));
+  cutilSafeCall(cudaFree(blockHistograms));
+  cutilSafeCall(cudaFree(cellHistograms));
+  cutilSafeCall(cudaFree(svmScores));
+  DeviceFreeHOGConvolutionMemory();
+  DeviceFreeHOGHistogramMemory();
+  DeviceFreeHOGSVMMemory();
+  DeviceFreeHOGPaddingMemory();
+  if (hUseGrayscale) {
+    cutilSafeCall(cudaFree(outputTest1));
+  } else {
+    cutilSafeCall(cudaFree(outputTest4));
+  }
+}
+
 void InitHOG(int width, int height) {
   cudaSetDevice(0);
   int i;
@@ -92,7 +168,6 @@ void InitHOG(int width, int height) {
     hCellSizeX + 1;
   hNumberOfBlockPerWindowY = (hWindowSizeY - hCellSizeY * hBlockSizeY) /
     hCellSizeY + 1;
-
   hNumberOfWindowsX = 0;
   for (i = 0; i < hNumberOfBlockPerWindowX; i++) {
     hNumberOfWindowsX += (hNoOfBlocksX - i) / hNumberOfBlockPerWindowX;
@@ -106,68 +181,22 @@ void InitHOG(int width, int height) {
   endScale = min(hPaddedWidth / (float) hWindowSizeX, hPaddedHeight /
     (float) hWindowSizeY);
   scaleCount = (int)floor(logf(endScale / startScale) / logf(scaleRatio)) + 1;
-
-  cutilSafeCall(cudaMalloc(&paddedRegisteredImage, sizeof(float4) *
-    hPaddedWidth * hPaddedHeight));
-  if (hUseGrayscale) {
-    cutilSafeCall(cudaMalloc(&resizedPaddedImageF1, sizeof(float1) *
-      hPaddedWidth * hPaddedHeight));
-  } else {
-    cutilSafeCall(cudaMalloc(&resizedPaddedImageF4, sizeof(float4) *
-      hPaddedWidth * hPaddedHeight));
-  }
-  cutilSafeCall(cudaMalloc(&colorGradientsF2, sizeof(float2) * hPaddedWidth *
-    hPaddedHeight));
-  cutilSafeCall(cudaMalloc(&blockHistograms, sizeof(float1) * hNoOfBlocksX *
-    hNoOfBlocksY * hCellSizeX * hCellSizeY * hNoHistogramBins));
-  cutilSafeCall(cudaMalloc(&cellHistograms, sizeof(float1) * hNoOfCellsX *
-    hNoOfCellsY * hNoHistogramBins));
-  cutilSafeCall(cudaMalloc(&svmScores, sizeof(float1) * hNumberOfWindowsX *
-    hNumberOfWindowsY * scaleCount));
-
   InitConvolution(hPaddedWidth, hPaddedHeight, hUseGrayscale);
   InitHistograms(hCellSizeX, hCellSizeY, hBlockSizeX, hBlockSizeY,
     hNoHistogramBins, HOG.wtScale);
-  InitSVM(HOG.svmBias, HOG.svmWeights, HOG.svmWeightsCount);
+  InitSVM();
   InitScale(hPaddedWidth, hPaddedHeight);
-  InitPadding(hPaddedWidth, hPaddedHeight);
-
+  InitPadding();
   rPaddedWidth = hPaddedWidth;
   rPaddedHeight = hPaddedHeight;
-
-  if (hUseGrayscale) {
-    cutilSafeCall(cudaMalloc(&outputTest1, sizeof(uchar1) * hPaddedWidth *
-      hPaddedHeight));
-  } else {
-    cutilSafeCall(cudaMalloc(&outputTest4, sizeof(uchar4) * hPaddedWidth *
-      hPaddedHeight));
-  }
-  cutilSafeCall(cudaMallocHost(&hResult, sizeof(float) * hNumberOfWindowsX *
-    hNumberOfWindowsY * scaleCount));
 }
 
 void CloseHOG() {
-  cutilSafeCall(cudaFree(paddedRegisteredImage));
-  if (hUseGrayscale) {
-    cutilSafeCall(cudaFree(resizedPaddedImageF1));
-  } else {
-    cutilSafeCall(cudaFree(resizedPaddedImageF4));
-  }
-  cutilSafeCall(cudaFree(colorGradientsF2));
-  cutilSafeCall(cudaFree(blockHistograms));
-  cutilSafeCall(cudaFree(cellHistograms));
-  cutilSafeCall(cudaFree(svmScores));
   CloseConvolution();
   CloseHistogram();
   CloseSVM();
   CloseScale();
   ClosePadding();
-  if (hUseGrayscale) {
-    cutilSafeCall(cudaFree(outputTest1));
-  } else {
-    cutilSafeCall(cudaFree(outputTest4));
-  }
-  cutilSafeCall(cudaFreeHost(hResult));
   cudaThreadExit();
 }
 

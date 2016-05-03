@@ -1,33 +1,43 @@
-#include "HOGSVMSlider.h"
-#include "HOGUtils.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include "cutil.h"
+#include "HOGEngine.h"
+#include "HOGUtils.h"
+#include "HOGSVMSlider.h"
 
 texture<float, 1, cudaReadModeElementType> texSVM;
 cudaArray *svmArray = 0;
-
 cudaChannelFormatDesc channelDescSVM;
-
 extern int scaleCount;
 extern int hNumberOfWindowsX, hNumberOfWindowsY;
 extern int hNumberOfBlockPerWindowX, hNumberOfBlockPerWindowY;
 extern int rNumberOfWindowsX, rNumberOfWindowsY;
-
 extern __shared__ float1 allSharedF1[];
-
 float svmBias;
 
-void InitSVM(float _svmBias, float* svmWeights, int svmWeightsCount) {
-  channelDescSVM = cudaCreateChannelDesc<float>();
-  cutilSafeCall(cudaMallocArray(&svmArray, &channelDescSVM, svmWeightsCount,
-    1));
-  cutilSafeCall(cudaMemcpyToArray(svmArray, 0, 0, svmWeights, svmWeightsCount *
-    sizeof(float), cudaMemcpyHostToDevice));
-  svmBias = _svmBias;
+void DeviceAllocHOGSVMMemory(void) {
+  cutilSafeCall(cudaMallocArray(&svmArray, &channelDescSVM,
+    HOG.svmWeightsCount, 1));
 }
 
-void CloseSVM() {
+void CopyInHOGSVM(void) {
+  cutilSafeCall(cudaMemcpyToArray(svmArray, 0, 0, HOG.svmWeights,
+    HOG.svmWeightsCount * sizeof(float), cudaMemcpyHostToDevice));
+}
+
+void DeviceFreeHOGSVMMemory(void) {
   cutilSafeCall(cudaFreeArray(svmArray));
 }
+
+void InitSVM() {
+  channelDescSVM = cudaCreateChannelDesc<float>();
+  svmBias = HOG.svmBias;
+}
+
+void CloseSVM() {}
 
 __global__ void linearSVMEvaluation(float1* svmScores, float svmBias,
             float1* blockHistograms, int noHistogramBins,
