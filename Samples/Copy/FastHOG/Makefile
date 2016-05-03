@@ -81,7 +81,7 @@ endif
 NVCC := $(CUDA_PATH)/bin/nvcc -ccbin $(GCC)
 
 # internal flags
-NVCCFLAGS   := -m${OS_SIZE} ${ARCH_FLAGS}
+NVCCFLAGS   := ${ARCH_FLAGS} --cudart shared -g --ptxas-options=-v
 CCFLAGS     :=
 LDFLAGS     :=
 
@@ -144,7 +144,8 @@ ALL_LDFLAGS += $(addprefix -Xlinker ,$(LDFLAGS))
 ALL_LDFLAGS += $(addprefix -Xlinker ,$(EXTRA_LDFLAGS))
 
 # Common includes and paths for CUDA
-INCLUDES  := -I/home/ubuntu/samples/NVIDIA_CUDA-6.5_Samples/common/inc
+INCLUDES = -I/home/ubuntu/NVIDIA_CUDA-6.5_Samples/common/inc -I.
+INCLUDES += -I/home/ubuntu/samples/NVIDIA_CUDA-6.5_Samples/common/inc
 LIBRARIES :=
 
 ################################################################################
