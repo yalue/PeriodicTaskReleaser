@@ -350,6 +350,9 @@ extern "C" void init(int sync_level) {
   // used here to invoke initialization of GPU locking
   cudaFree(0);
   
+  // Set the device context 
+  cudaSetDevice(0);
+
   // create a user defined stream
   cudaStreamCreate(&stream);
 
@@ -420,22 +423,4 @@ extern "C" void finish() {
   }
   exit(EXIT_SUCCESS);
 }
-
-// int main(int argc, char **argv) {
-
-//   printf("%s Starting...\n\n", sSDKsample);
-
-//   printf("[%s] (automated testing w/ readback)\n", sSDKsample);
-//   sf_init(0);
-//   sf_mallocHost(argv[0]);
-//   sf_cudaMalloc();
-//   sf_copyin();
-//   sf_exec();
-//   sf_copyout();
-//   printf("AutoTest %s done\n", argv[0]);
-//   sdkSavePGM(dump_file, h_result, imWidth, imHeight);
-//   sf_cudaFree();
-//   sf_freeHost();
-//   sf_finish(argv[0]);
-// }
 

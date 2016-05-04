@@ -152,6 +152,9 @@ extern "C" void init(int sync_level) {
   // used here to invoke initialization of GPU locking
   cudaFree(0);
 
+  // Set the device context 
+  cudaSetDevice(0);
+
   // create a user defined stream
   cudaStreamCreate(&stream);
 }
