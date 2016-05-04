@@ -45,4 +45,6 @@ void BeginProcess(HOGImage* hostImage,
 
 void EndProcess();
 
+void ComputeFormattedResults();
+
 #endif // HOG_ENGINE_H

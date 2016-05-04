@@ -1,8 +1,11 @@
 SAMPLE_DIR = ../Samples
 UTIL_DIR = ../util
 INC = -I$(UTIL_DIR) -I$(SAMPLE_DIR)
+HOSTARCH = $(shell uname -i)
 
-all: benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_mem_c benchmark_mem_zc benchmark_sf_c benchmark_sf_zc benchmark_sd_c benchmark_sd_zc
+all: benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_mem_c \
+		benchmark_mem_zc benchmark_sf_c benchmark_sf_zc benchmark_sd_c benchmark_sd_zc \
+		benchmark_fasthog_c
 
 benchmark_va_c: benchmark.o util.o
 	cd $(SAMPLE_DIR) && make va_c.o
@@ -44,6 +47,11 @@ benchmark_sd_zc: benchmark.o util.o
 	cd $(SAMPLE_DIR) && make sd_zc.o
 	nvcc benchmark.o $(SAMPLE_DIR)/sd_zc.o util.o -o benchmark_sd_zc --cudart shared -g
 
+benchmark_fasthog_c: benchmark.o util.o
+	cd $(SAMPLE_DIR) && make fasthog_c.a
+	nvcc benchmark.o $(SAMPLE_DIR)/fasthog_c.a $(SAMPLE_DIR)/Copy/FastHOG/libs/libfreeimage_$(HOSTARCH).a \
+		util.o --cudart shared -g -o benchmark_fasthog_c -lpthread
+
 benchmark.o: ./benchmark.c
 	gcc -c ./benchmark.c -Wall -g $(INC)
 
@@ -54,5 +62,5 @@ util.o: $(UTIL_DIR)/util.c
 	gcc -c $(UTIL_DIR)/util.c -Wall -g
 
 clean:
-	rm -rf *.o benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_mem_c benchmark_mem_zc benchmark_sf_c benchmark_sd_c bin
+	rm -rf *.o benchmark_* bin
 	cd $(SAMPLE_DIR) && make clean

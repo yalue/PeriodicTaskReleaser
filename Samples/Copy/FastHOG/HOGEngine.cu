@@ -12,7 +12,6 @@
 // Contains some global state
 struct hog HOG;
 
-extern void ComputeFormattedResults();
 extern void SaveResultsToDisk(char* fileName);
 
 void InitializeHOG(int iw, int ih, float svmBias, float* svmWeights,
@@ -56,12 +55,11 @@ void BeginProcess(HOGImage* hostImage, int _minx, int _miny, int _maxx,
 }
 
 void EndProcess() {
-  char file_name[] = "formattedResults.txt";
   HOG.cppResult = EndHOGProcessing();
   GetHOGParameters();
   ComputeFormattedResults();
-  printf("Found %d positive results.\n", HOG.formattedResultsCount);
-  SaveResultsToDisk(file_name);
+  // printf("Found %d positive results.\n", HOG.formattedResultsCount);
+  // SaveResultsToDisk(file_name);
 }
 
 void SaveResultsToDisk(char* fileName) {

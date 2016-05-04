@@ -17,7 +17,8 @@ extern "C" {
 HOGImage image;
 cudaStream_t stream;
 
-char file_name[] = "Files/Images/testImage.bmp";
+char file_name[] = "../Samples/Copy/FastHOG/Files/Images/testImage.bmp";
+
 
 void init(int sync_level) {
   switch (sync_level) {
@@ -71,8 +72,6 @@ void exec(int numElements) {
 }
 
 void copyout() {
-  // TODO (Nathan): Split EndProcess into copyout() and finish(), remove disk
-  // stuff.
   EndProcess();
 }
 
@@ -86,8 +85,15 @@ void freeCPU() {
 
 void finish() {
   FinalizeHOG();
+  cudaStreamSynchronize(stream);
+  cudaStreamDestroy(stream);
+  if (cudaDeviceReset() != cudaSuccess) {
+    printf("Failed to reset the device.\n");
+    exit(1);
+  }
 }
 
+/*
 int main(void) {
   init(0);
   mallocCPU(0);
@@ -98,21 +104,6 @@ int main(void) {
   freeGPU();
   freeCPU();
   finish();
-}
-
-/*
-int main(void) {
-  image = HOGImageFile(file_name);
-  printf("Loaded Image\n");
-  InitializeHOG(image->width, image->height, PERSON_LINEAR_BIAS,
-    PERSON_WEIGHT_VEC, PERSON_WEIGHT_VEC_LENGTH);
-  printf("Initialized HOG\n");
-  BeginProcess(image, -1, -1, -1, -1, -1.0f, -1.0f);
-  EndProcess();
-  printf("Processed Image\n");
-#ifdef FOOBAR
-  FinalizeHOG();
-#endif
   return 0;
 }
 */

@@ -1,7 +1,7 @@
 *.txt
 *.csv
 *.o
-*.a
+Samples/fasthog_*
 Periodic/launcher_*
 bin
 Benchmark/benchmark_*

@@ -33,9 +33,10 @@ va_zc.o: ZeroCopy/va.cu
 mm_zc.o: ZeroCopy/mm.cu
 	nvcc -c ZeroCopy/mm.cu -o mm_zc.o --cudart shared -g --ptxas-options=-v
 
-fastHOG_c.a:
-	cd Copy/FastHOG && make fastHOG.a
-	cp Copy/FastHOG/fastHOG.a .
+fasthog_c.a:
+	cd Copy/FastHOG && make fasthog.a
+	mv Copy/FastHOG/fasthog.a fasthog_c.a
 
 clean:
-	rm -rf *.o bin
+	cd Copy/FastHOG && make clean
+	rm -rf *.o fasthog_c.a bin
