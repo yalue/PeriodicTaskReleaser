@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 #include <cuda.h>
 #include "cutil.h"
+#include "HOGEngine.h"
 #include "HOGUtils.h"
 #include "HOGScale.h"
 
@@ -56,22 +57,29 @@ void DownscaleImage(int startScaleId, int endScaleId, int scaleId, float scale,
   hBlockSize = dim3(iDivUp(rPaddedWidth, hThreadSize.x), iDivUp(rPaddedHeight,
     hThreadSize.y));
   if (scaleId == startScaleId) {
-    cutilSafeCall(cudaMemcpyToArray(imageArray, 0, 0, paddedRegisteredImage,
-      sizeof(float4) * hPaddedWidth * hPaddedHeight,
-      cudaMemcpyDeviceToDevice));
+    cutilSafeCall(cudaMemcpyToArrayAsync(imageArray, 0, 0,
+      paddedRegisteredImage, sizeof(float4) * hPaddedWidth * hPaddedHeight,
+      cudaMemcpyDeviceToDevice, stream));
+    cutilSafeCall(cudaStreamSynchronize(stream));
   }
   cutilSafeCall(cudaBindTextureToArray(tex, imageArray, channelDescDownscale));
 
   if (useGrayscale) {
-    cutilSafeCall(cudaMemset(resizedPaddedImageF1, 0, hPaddedWidth *
-      hPaddedHeight * sizeof(float1)));
-    resizeFastBicubic1<<<hBlockSize, hThreadSize>>>(resizedPaddedImageF1,
-      paddedRegisteredImage, rPaddedWidth, rPaddedHeight, scale);
+    cutilSafeCall(cudaMemsetAsync(resizedPaddedImageF1, 0, hPaddedWidth *
+      hPaddedHeight * sizeof(float1), stream));
+    cutilSafeCall(cudaStreamSynchronize(stream));
+    resizeFastBicubic1<<<hBlockSize, hThreadSize, 0, stream>>>(
+      resizedPaddedImageF1, paddedRegisteredImage, rPaddedWidth, rPaddedHeight,
+      scale);
+    cutilSafeCall(cudaStreamSynchronize(stream));
   } else {
-    cutilSafeCall(cudaMemset(resizedPaddedImageF4, 0, hPaddedWidth *
-      hPaddedHeight * sizeof(float4)));
-    resizeFastBicubic4<<<hBlockSize, hThreadSize>>>(resizedPaddedImageF4,
-      paddedRegisteredImage, rPaddedWidth, rPaddedHeight, scale);
+    cutilSafeCall(cudaMemsetAsync(resizedPaddedImageF4, 0, hPaddedWidth *
+      hPaddedHeight * sizeof(float4), stream));
+    cutilSafeCall(cudaStreamSynchronize(stream));
+    resizeFastBicubic4<<<hBlockSize, hThreadSize, 0, stream>>>(
+      resizedPaddedImageF4, paddedRegisteredImage, rPaddedWidth, rPaddedHeight,
+      scale);
+    cutilSafeCall(cudaStreamSynchronize(stream));
   }
   cutilSafeCall(cudaUnbindTexture(tex));
 }

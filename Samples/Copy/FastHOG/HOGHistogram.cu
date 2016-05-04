@@ -4,6 +4,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "cutil.h"
+#include "HOGEngine.h"
 #include "HOGUtils.h"
 #include "HOGHistogram.h"
 
@@ -60,17 +61,22 @@ void DeviceAllocHOGHistogramMemory(void) {
 }
 
 void CopyInHOGHistogram(void) {
-  cutilSafeCall(cudaMemcpyToArray(gaussArray, 0, 0, hostWeights,
+  cutilSafeCall(cudaMemcpyToArrayAsync(gaussArray, 0, 0, hostWeights,
     sizeof(float) * initVars.cellSizeX * initVars.blockSizeX *
-    initVars.cellSizeY * initVars.blockSizeY, cudaMemcpyHostToDevice));
-  cutilSafeCall(cudaMemcpyToSymbol(cenBound, initVars.h_cenBound, 3 *
-    sizeof(float), 0, cudaMemcpyHostToDevice));
-  cutilSafeCall(cudaMemcpyToSymbol(halfBin, initVars.h_halfBin, 3 *
-    sizeof(float), 0, cudaMemcpyHostToDevice));
-  cutilSafeCall(cudaMemcpyToSymbol(bandWidth, initVars.h_bandWidth, 3 *
-    sizeof(float), 0, cudaMemcpyHostToDevice));
-  cutilSafeCall(cudaMemcpyToSymbol(tvbin, initVars.h_tvbin, 3 * sizeof(int), 0,
-    cudaMemcpyHostToDevice));
+    initVars.cellSizeY * initVars.blockSizeY, cudaMemcpyHostToDevice, stream));
+  cutilSafeCall(cudaStreamSynchronize(stream));
+  cutilSafeCall(cudaMemcpyToSymbolAsync(cenBound, initVars.h_cenBound, 3 *
+    sizeof(float), 0, cudaMemcpyHostToDevice, stream));
+  cutilSafeCall(cudaStreamSynchronize(stream));
+  cutilSafeCall(cudaMemcpyToSymbolAsync(halfBin, initVars.h_halfBin, 3 *
+    sizeof(float), 0, cudaMemcpyHostToDevice, stream));
+  cutilSafeCall(cudaStreamSynchronize(stream));
+  cutilSafeCall(cudaMemcpyToSymbolAsync(bandWidth, initVars.h_bandWidth, 3 *
+    sizeof(float), 0, cudaMemcpyHostToDevice, stream));
+  cutilSafeCall(cudaStreamSynchronize(stream));
+  cutilSafeCall(cudaMemcpyToSymbolAsync(tvbin, initVars.h_tvbin, 3 *
+    sizeof(int), 0, cudaMemcpyHostToDevice, stream));
+  cutilSafeCall(cudaStreamSynchronize(stream));
 }
 
 void HostFreeHOGHistogramMemory(void) {
@@ -439,8 +445,10 @@ void ComputeBlockHistogramsWithGauss(float2* inputImage,
   cutilSafeCall(cudaBindTextureToArray(texGauss, gaussArray, channelDescGauss));
   computeBlockHistogramsWithGauss<<<hBlockSize, hThreadSize, noHistogramBins *
     blockSizeX * blockSizeY * cellSizeX * blockSizeY * blockSizeX *
-    sizeof(float)>>>(inputImage, blockHistograms, noHistogramBins, cellSizeX,
-    cellSizeY, blockSizeX, blockSizeY, leftoverX, leftoverY, width, height);
+    sizeof(float), stream>>>(inputImage, blockHistograms, noHistogramBins,
+    cellSizeX, cellSizeY, blockSizeX, blockSizeY, leftoverX, leftoverY, width,
+    height);
+  cutilSafeCall(cudaStreamSynchronize(stream));
   cutilSafeCall(cudaUnbindTexture(texGauss));
 }
 
@@ -458,137 +466,107 @@ void NormalizeBlockHistograms(float1* blockHistograms, int noHistogramBins,
   int alignedBlockDimY = iClosestPowerOfTwo(blockSizeX);
   int alignedBlockDimZ = iClosestPowerOfTwo(blockSizeY);
   normalizeBlockHistograms<<<hBlockSize, hThreadSize, noHistogramBins *
-    blockSizeX * blockSizeY * sizeof(float)>>>(blockHistograms,
+    blockSizeX * blockSizeY * sizeof(float), stream>>>(blockHistograms,
     noHistogramBins, rNoOfBlocksX, rNoOfBlocksY, blockSizeX, blockSizeY,
     alignedBlockDimX, alignedBlockDimY, alignedBlockDimZ, noHistogramBins *
     rNoOfCellsX, rNoOfCellsY);
+  cutilSafeCall(cudaStreamSynchronize(stream));
 }
 
-__global__ void normalizeBlockHistograms(float1 *blockHistograms, int noHistogramBins,
-                     int rNoOfHOGBlocksX, int rNoOfHOGBlocksY,
-                     int blockSizeX, int blockSizeY,
-                     int alignedBlockDimX, int alignedBlockDimY, int alignedBlockDimZ,
-                     int width, int height)
-{
-  int smemLocalHistogramPos, smemTargetHistogramPos, gmemPosBlock, gmemWritePosBlock;
-
-  float* shLocalHistogram = (float*)allShared;
-
-  float localValue, norm1, norm2; float eps2 = 0.01f;
-
-  smemLocalHistogramPos = __mul24(threadIdx.y, noHistogramBins) + __mul24(threadIdx.z, blockDim.x) * blockDim.y + threadIdx.x;
-  gmemPosBlock = __mul24(threadIdx.y, noHistogramBins) + __mul24(threadIdx.z, gridDim.x) * __mul24(blockDim.y, blockDim.x) +
-    threadIdx.x + __mul24(blockIdx.x, noHistogramBins) * blockDim.y + __mul24(blockIdx.y, gridDim.x) * __mul24(blockDim.y, blockDim.x) * blockDim.z;
-  gmemWritePosBlock = __mul24(threadIdx.z, noHistogramBins) + __mul24(threadIdx.y, gridDim.x) * __mul24(blockDim.y, blockDim.x) +
-    threadIdx.x + __mul24(blockIdx.x, noHistogramBins) * blockDim.y + __mul24(blockIdx.y, gridDim.x) * __mul24(blockDim.y, blockDim.x) * blockDim.z;
-
+__global__ void normalizeBlockHistograms(float1 *blockHistograms,
+    int noHistogramBins, int rNoOfHOGBlocksX, int rNoOfHOGBlocksY,
+    int blockSizeX, int blockSizeY, int alignedBlockDimX, int alignedBlockDimY,
+    int alignedBlockDimZ, int width, int height) {
+  int smemLocalHistogramPos, smemTargetHistogramPos, gmemPosBlock,
+    gmemWritePosBlock;
+  float* shLocalHistogram = (float*) allShared;
+  float localValue, norm1, norm2;
+  float eps2 = 0.01f;
+  smemLocalHistogramPos = __mul24(threadIdx.y, noHistogramBins) +
+    __mul24(threadIdx.z, blockDim.x) * blockDim.y + threadIdx.x;
+  gmemPosBlock = __mul24(threadIdx.y, noHistogramBins) + __mul24(threadIdx.z,
+    gridDim.x) * __mul24(blockDim.y, blockDim.x) + threadIdx.x +
+    __mul24(blockIdx.x, noHistogramBins) * blockDim.y + __mul24(blockIdx.y,
+    gridDim.x) * __mul24(blockDim.y, blockDim.x) * blockDim.z;
+  gmemWritePosBlock = __mul24(threadIdx.z, noHistogramBins) +
+    __mul24(threadIdx.y, gridDim.x) * __mul24(blockDim.y, blockDim.x) +
+    threadIdx.x + __mul24(blockIdx.x, noHistogramBins) * blockDim.y +
+    __mul24(blockIdx.y, gridDim.x) * __mul24(blockDim.y, blockDim.x) *
+    blockDim.z;
   localValue = blockHistograms[gmemPosBlock].x;
   shLocalHistogram[smemLocalHistogramPos] = localValue * localValue;
-
-  if (blockIdx.x == 10 && blockIdx.y == 8)
-  {
+  if (blockIdx.x == 10 && blockIdx.y == 8) {
     int asasa;
     asasa = 0;
     asasa++;
   }
-
   __syncthreads();
-
-  for(unsigned int s = alignedBlockDimZ >> 1; s>0; s>>=1)
-  {
-    if (threadIdx.z < s && (threadIdx.z + s) < blockDim.z)
-    {
-      smemTargetHistogramPos = __mul24(threadIdx.y, noHistogramBins) + __mul24((threadIdx.z + s), blockDim.x) * blockDim.y + threadIdx.x;
-      shLocalHistogram[smemLocalHistogramPos] += shLocalHistogram[smemTargetHistogramPos];
+  for(unsigned int s = alignedBlockDimZ >> 1; s > 0; s >>= 1) {
+    if (threadIdx.z < s && (threadIdx.z + s) < blockDim.z) {
+      smemTargetHistogramPos = __mul24(threadIdx.y, noHistogramBins) +
+        __mul24((threadIdx.z + s), blockDim.x) * blockDim.y + threadIdx.x;
+      shLocalHistogram[smemLocalHistogramPos] +=
+        shLocalHistogram[smemTargetHistogramPos];
     }
-
-    __syncthreads();
-
-  }
-
-  for (unsigned int s = alignedBlockDimY >> 1; s>0; s>>=1)
-  {
-    if (threadIdx.y < s && (threadIdx.y + s) < blockDim.y)
-    {
-      smemTargetHistogramPos = __mul24((threadIdx.y + s), noHistogramBins) + __mul24(threadIdx.z, blockDim.x) * blockDim.y + threadIdx.x;
-      shLocalHistogram[smemLocalHistogramPos] += shLocalHistogram[smemTargetHistogramPos];
-    }
-
-    __syncthreads();
-
-  }
-
-  for(unsigned int s = alignedBlockDimX >> 1; s>0; s>>=1)
-  {
-    if (threadIdx.x < s && (threadIdx.x + s) < blockDim.x)
-    {
-      smemTargetHistogramPos = __mul24(threadIdx.y, noHistogramBins) + __mul24(threadIdx.z, blockDim.x) * blockDim.y + (threadIdx.x + s);
-      shLocalHistogram[smemLocalHistogramPos] += shLocalHistogram[smemTargetHistogramPos];
-    }
-
     __syncthreads();
   }
-
-  //if (blockIdx.x == 5 && blockIdx.y == 4)
-  //{
-  //  int asasa;
-  //  asasa = 0;
-  //  asasa++;
-  //}
-
-  norm1 = sqrtf(shLocalHistogram[0]) + __mul24(noHistogramBins, blockSizeX) * blockSizeY;
+  for (unsigned int s = alignedBlockDimY >> 1; s > 0; s >>= 1) {
+    if (threadIdx.y < s && (threadIdx.y + s) < blockDim.y) {
+      smemTargetHistogramPos = __mul24((threadIdx.y + s), noHistogramBins) +
+        __mul24(threadIdx.z, blockDim.x) * blockDim.y + threadIdx.x;
+      shLocalHistogram[smemLocalHistogramPos] +=
+        shLocalHistogram[smemTargetHistogramPos];
+    }
+    __syncthreads();
+  }
+  for(unsigned int s = alignedBlockDimX >> 1; s > 0; s >>= 1) {
+    if (threadIdx.x < s && (threadIdx.x + s) < blockDim.x) {
+      smemTargetHistogramPos = __mul24(threadIdx.y, noHistogramBins) +
+        __mul24(threadIdx.z, blockDim.x) * blockDim.y + (threadIdx.x + s);
+      shLocalHistogram[smemLocalHistogramPos] +=
+        shLocalHistogram[smemTargetHistogramPos];
+    }
+    __syncthreads();
+  }
+  norm1 = sqrtf(shLocalHistogram[0]) + __mul24(noHistogramBins, blockSizeX) *
+    blockSizeY;
   localValue /= norm1;
 
   localValue = fminf(0.2f, localValue); //why 0.2 ??
-
   __syncthreads();
-
   shLocalHistogram[smemLocalHistogramPos] = localValue * localValue;
-
   __syncthreads();
-
-  for(unsigned int s = alignedBlockDimZ >> 1; s>0; s>>=1)
-  {
-    if (threadIdx.z < s && (threadIdx.z + s) < blockDim.z)
-    {
-      smemTargetHistogramPos = __mul24(threadIdx.y, noHistogramBins) + __mul24((threadIdx.z + s), blockDim.x) * blockDim.y + threadIdx.x;
-      shLocalHistogram[smemLocalHistogramPos] += shLocalHistogram[smemTargetHistogramPos];
+  for(unsigned int s = alignedBlockDimZ >> 1; s > 0; s >>= 1) {
+    if (threadIdx.z < s && (threadIdx.z + s) < blockDim.z) {
+      smemTargetHistogramPos = __mul24(threadIdx.y, noHistogramBins) +
+        __mul24((threadIdx.z + s), blockDim.x) * blockDim.y + threadIdx.x;
+      shLocalHistogram[smemLocalHistogramPos] +=
+        shLocalHistogram[smemTargetHistogramPos];
     }
-
-    __syncthreads();
-
-  }
-
-  for (unsigned int s = alignedBlockDimY >> 1; s>0; s>>=1)
-  {
-    if (threadIdx.y < s && (threadIdx.y + s) < blockDim.y)
-    {
-      smemTargetHistogramPos = __mul24((threadIdx.y + s), noHistogramBins) + __mul24(threadIdx.z, blockDim.x) * blockDim.y + threadIdx.x;
-      shLocalHistogram[smemLocalHistogramPos] += shLocalHistogram[smemTargetHistogramPos];
-    }
-
-    __syncthreads();
-
-  }
-
-  for(unsigned int s = alignedBlockDimX >> 1; s>0; s>>=1)
-  {
-    if (threadIdx.x < s && (threadIdx.x + s) < blockDim.x)
-    {
-      smemTargetHistogramPos = __mul24(threadIdx.y, noHistogramBins) + __mul24(threadIdx.z, blockDim.x) * blockDim.y + (threadIdx.x + s);
-      shLocalHistogram[smemLocalHistogramPos] += shLocalHistogram[smemTargetHistogramPos];
-    }
-
     __syncthreads();
   }
-
+  for (unsigned int s = alignedBlockDimY >> 1; s > 0; s >>= 1) {
+    if (threadIdx.y < s && (threadIdx.y + s) < blockDim.y) {
+      smemTargetHistogramPos = __mul24((threadIdx.y + s), noHistogramBins) +
+        __mul24(threadIdx.z, blockDim.x) * blockDim.y + threadIdx.x;
+      shLocalHistogram[smemLocalHistogramPos] +=
+        shLocalHistogram[smemTargetHistogramPos];
+    }
+    __syncthreads();
+  }
+  for(unsigned int s = alignedBlockDimX >> 1; s > 0; s >>= 1) {
+    if (threadIdx.x < s && (threadIdx.x + s) < blockDim.x) {
+      smemTargetHistogramPos = __mul24(threadIdx.y, noHistogramBins) +
+        __mul24(threadIdx.z, blockDim.x) * blockDim.y + (threadIdx.x + s);
+      shLocalHistogram[smemLocalHistogramPos] +=
+        shLocalHistogram[smemTargetHistogramPos];
+    }
+    __syncthreads();
+  }
   norm2 = sqrtf(shLocalHistogram[0]) + eps2;
   localValue /= norm2;
-
   blockHistograms[gmemWritePosBlock].x = localValue;
-
-  if (blockIdx.x == 10 && blockIdx.y == 8)
-  {
+  if (blockIdx.x == 10 && blockIdx.y == 8) {
     int asasa;
     asasa = 0;
     asasa++;

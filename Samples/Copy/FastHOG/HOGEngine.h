@@ -45,5 +45,4 @@ void BeginProcess(HOGImage* hostImage,
 
 void EndProcess();
 
-void GetImage(HOGImage *imageCUDA, ImageType imageType);
 #endif // HOG_ENGINE_H

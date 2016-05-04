@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 #include <cuda.h>
 #include "cutil.h"
+#include "HOGEngine.h"
 #include "HOGUtils.h"
 #include "HOGPadding.h"
 
@@ -47,12 +48,14 @@ void PadHostImage(uchar4* registeredImage, float4 *paddedRegisteredImage,
   hPaddingSizeY = max(toaddxy, toaddyy);
   hPaddedWidth = hWidthROI + hPaddingSizeX*2;
   hPaddedHeight = hHeightROI + hPaddingSizeY*2;
-  cutilSafeCall(cudaMemset(paddedRegisteredImageU4, 0, sizeof(uchar4) *
-    hPaddedWidth * hPaddedHeight));
-  cutilSafeCall(cudaMemcpy2D(paddedRegisteredImageU4 + hPaddingSizeX +
+  cutilSafeCall(cudaMemsetAsync(paddedRegisteredImageU4, 0, sizeof(uchar4) *
+    hPaddedWidth * hPaddedHeight, stream));
+  cutilSafeCall(cudaStreamSynchronize(stream));
+  cutilSafeCall(cudaMemcpy2DAsync(paddedRegisteredImageU4 + hPaddingSizeX +
     hPaddingSizeY * hPaddedWidth, hPaddedWidth * sizeof(uchar4),
     registeredImage + minx + miny * hWidth, hWidth * sizeof(uchar4),
-    hWidthROI * sizeof(uchar4), hHeightROI, cudaMemcpyHostToDevice));
-
-  Uchar4ToFloat4(paddedRegisteredImageU4, paddedRegisteredImage, hPaddedWidth, hPaddedHeight);
+    hWidthROI * sizeof(uchar4), hHeightROI, cudaMemcpyHostToDevice, stream));
+  cutilSafeCall(cudaStreamSynchronize(stream));
+  Uchar4ToFloat4(paddedRegisteredImageU4, paddedRegisteredImage, hPaddedWidth,
+    hPaddedHeight);
 }

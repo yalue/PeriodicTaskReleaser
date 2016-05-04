@@ -64,8 +64,9 @@ void copyin(int numElements) {
 }
 
 void exec(int numElements) {
-  // TODO (Nathan): Get the remaining allocates/copies out of this. HOGScale
-  // definitely has some, to start.
+  // There are still memcpys to the device in HOGScale and HOGPadding--they
+  // may require more work to get rid of because they seem to rely on variables
+  // determined during the execution phase.
   BeginProcess(&image, -1, -1, -1, -1, -1.0f, -1.0f);
 }
 

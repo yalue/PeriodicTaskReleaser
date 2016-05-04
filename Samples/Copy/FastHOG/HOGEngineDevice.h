@@ -15,11 +15,6 @@ float* EndHOGProcessing();
 
 void GetHOGParameters();
 
-void GetProcessedImage(unsigned char* hostImage, int imageType);
-
-float3* CUDAImageRescale(float3* src, int width, int height, int &rWidth,
-    int &rHeight, float scale);
-
 void InitCUDAHOG(int cellSizeX, int cellSizeY, int blockSizeX, int blockSizeY,
     int windowSizeX, int windowSizeY, int noOfHistogramBins, float wtscale,
     float svmBias, float* svmWeights, int svmWeightsCount, bool useGrayscale);

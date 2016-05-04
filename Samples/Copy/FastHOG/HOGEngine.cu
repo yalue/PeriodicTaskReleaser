@@ -64,26 +64,6 @@ void EndProcess() {
   SaveResultsToDisk(file_name);
 }
 
-void GetImage(HOGImage *imageCUDA, ImageType imageType) {
-  switch (imageType) {
-  case IMAGE_RESIZED:
-    GetProcessedImage(imageCUDA->pixels, 0);
-    break;
-  case IMAGE_COLOR_GRADIENTS:
-    GetProcessedImage(imageCUDA->pixels, 1);
-    break;
-  case IMAGE_GRADIENT_ORIENTATIONS:
-    GetProcessedImage(imageCUDA->pixels, 2);
-    break;
-  case IMAGE_PADDED:
-    GetProcessedImage(imageCUDA->pixels, 3);
-    break;
-  case IMAGE_ROI:
-    GetProcessedImage(imageCUDA->pixels, 4);
-    break;
-  }
-}
-
 void SaveResultsToDisk(char* fileName) {
   FILE* f;
   f = fopen(fileName, "w+");

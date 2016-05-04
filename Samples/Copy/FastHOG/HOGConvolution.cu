@@ -277,8 +277,8 @@ void CopyInHOGConvolution(void) {
   h_Kernel[0] = 1.0f;
   h_Kernel[1] = 0;
   h_Kernel[2] = -1.0f;
-  cutilSafeCall(cudaMemcpyToSymbolAsync(d_Kernel, h_Kernel, convKernelSize,
-    stream));
+  cutilSafeCall(cudaMemcpyToSymbolAsync(d_Kernel, h_Kernel, convKernelSize, 0,
+    cudaMemcpyHostToDevice, stream));
   cutilSafeCall(cudaStreamSynchronize(stream));
 }
 
@@ -311,22 +311,22 @@ void SetConvolutionSize(int width, int height) {
 void CloseConvolution() {}
 
 void ComputeColorGradients1to2(float1* inputImage, float2* outputImage) {
-  convolutionRowGPU1<<<blockGridRows, threadBlockRows, stream>>>(convBuffer1,
-    inputImage, convWidth, convHeight);
+  convolutionRowGPU1<<<blockGridRows, threadBlockRows, 0, stream>>>(
+    convBuffer1, inputImage, convWidth, convHeight);
   cutilSafeCall(cudaStreamSynchronize(stream));
-  convolutionColumnGPU1to2<<<blockGridColumns, threadBlockColumns, stream>>>(
-    outputImage, inputImage, convBuffer1, convWidth, convHeight,
+  convolutionColumnGPU1to2<<<blockGridColumns, threadBlockColumns, 0,
+    stream>>>(outputImage, inputImage, convBuffer1, convWidth, convHeight,
     convColumnTileWidth * threadBlockColumns.y, convWidth *
     threadBlockColumns.y);
   cutilSafeCall(cudaStreamSynchronize(stream));
 }
 
 void ComputeColorGradients4to2(float4* inputImage, float2* outputImage) {
-  convolutionRowGPU4<<<blockGridRows, threadBlockRows, stream>>>(convBuffer4,
-    inputImage, convWidth, convHeight);
+  convolutionRowGPU4<<<blockGridRows, threadBlockRows, 0, stream>>>(
+    convBuffer4, inputImage, convWidth, convHeight);
   cutilSafeCall(cudaStreamSynchronize(stream));
-  convolutionColumnGPU4to2<<<blockGridColumns, threadBlockColumns, stream>>>(
-    outputImage, inputImage, convBuffer4, convWidth, convHeight,
+  convolutionColumnGPU4to2<<<blockGridColumns, threadBlockColumns, 0,
+    stream>>>(outputImage, inputImage, convBuffer4, convWidth, convHeight,
     convColumnTileWidth * threadBlockColumns.y, convWidth *
     threadBlockColumns.y);
   cutilSafeCall(cudaStreamSynchronize(stream));

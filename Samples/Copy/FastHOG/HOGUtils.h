@@ -1,12 +1,6 @@
 #ifndef __HOG_UTILS__
 #define __HOG_UTILS__
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-
-#include <cuda_runtime.h>
-#include <cuda.h>
 #include "HOGDefines.h"
 
 int iDivUp(int a, int b);
