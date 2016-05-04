@@ -15,6 +15,7 @@ extern "C" {
 }
 
 HOGImage image;
+cudaStream_t stream;
 
 char file_name[] = "Files/Images/testImage.bmp";
 
@@ -34,8 +35,18 @@ void init(int sync_level) {
     printf("Unable to load image file.\n");
     exit(1);
   }
-  // TODO (Nathan): Remove this if it's already further down the stack.
-  cudaFree(0);
+  if (cudaSetDevice(0) != cudaSuccess) {
+    printf("Unable to set cuda device.\n");
+    exit(1);
+  }
+  if (cudaFree(0) != cudaSuccess) {
+    printf("Error running cudaFree(0).\n");
+    exit(1);
+  }
+  if (cudaStreamCreate(&stream) != cudaSuccess) {
+    printf("Unable to create cuda stream.\n");
+    exit(1);
+  }
   InitializeHOG(image.width, image.height, PERSON_LINEAR_BIAS,
     PERSON_WEIGHT_VEC, PERSON_WEIGHT_VEC_LENGTH);
 }

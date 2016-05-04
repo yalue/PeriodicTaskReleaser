@@ -32,6 +32,8 @@ struct hog {
 
 extern struct hog HOG;
 
+extern cudaStream_t stream;
+
 void InitializeHOG(int iw, int ih, float svmBias, float* svmWeights,
     int svmWeightsCount);
 
