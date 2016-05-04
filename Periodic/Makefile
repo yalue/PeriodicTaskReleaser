@@ -1,9 +1,10 @@
 SAMPLE_DIR = ../Samples
 UTIL_DIR = ../util
 INC = -I$(UTIL_DIR) -I$(SAMPLE_DIR)
+HOSTARCH = $(shell uname -i)
 
 all: launcher_va_c launcher_va_zc launcher_mm_c launcher_mm_zc launcher_sf_c launcher_sf_zc launcher_sd_c \
-	launcher_sd_zc
+	launcher_sd_zc launcher_fasthog_c
 
 launcher_mm_zc: launcher.o  runner.o util.o 
 	cd $(SAMPLE_DIR) && make mm_zc.o
@@ -37,6 +38,11 @@ launcher_sd_zc: launcher.o  runner.o util.o
 	cd $(SAMPLE_DIR) && make sd_zc.o
 	nvcc launcher.o $(SAMPLE_DIR)/sd_zc.o runner.o util.o --cudart shared -g -o launcher_sd_zc -lpthread
 
+launcher_fasthog_c: launcher.o runner.o util.o
+	cd $(SAMPLE_DIR) && make fasthog_c.a
+	nvcc launcher.o $(SAMPLE_DIR)/fasthog_c.a $(SAMPLE_DIR)/Copy/FastHOG/libs/libfreeimage_$(HOSTARCH).a \
+		runner.o util.o --cudart shared -g -o launcher_fasthog_c -lpthread
+
 runner.o: runner.c
 	gcc -c runner.c -Wall -g $(INC)
 
@@ -47,5 +53,5 @@ util.o: $(UTIL_DIR)/util.c
 	gcc -c $(UTIL_DIR)/util.c -Wall -g $(INC)
 
 clean:
-	rm -rf *.o launcher_va_c launcher_va_zc launcher_mm_c launcher_mm_zc bin launcher_sf_c launcher_sd_c
+	rm -rf *.o launcher_*
 	cd $(SAMPLE_DIR) && make clean
