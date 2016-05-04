@@ -62,5 +62,5 @@ util.o: $(UTIL_DIR)/util.c
 	gcc -c $(UTIL_DIR)/util.c -Wall -g
 
 clean:
-	rm -rf *.o benchmark_* bin
+	rm -rf *.o benchmark_*[_z]c bin
 	cd $(SAMPLE_DIR) && make clean

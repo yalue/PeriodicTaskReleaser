@@ -23,4 +23,6 @@ typedef struct hogimage {
 
 bool HOGImageFile(const char *fileName, HOGImage *image);
 
+void DestroyHOGImage(HOGImage *image);
+
 #endif /* HOGIMAGE_H_ */

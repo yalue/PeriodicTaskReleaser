@@ -37,12 +37,8 @@ void HostAllocHOGHistogramMemory(void) {
   int cellSizeY = initVars.cellSizeY;
   int blockSizeX = initVars.blockSizeX;
   int blockSizeY = initVars.blockSizeY;
-  hostWeights = (float*) malloc(cellSizeX * blockSizeX * cellSizeY *
-    blockSizeY * sizeof(float));
-  if (!hostWeights) {
-    printf("Failed allocating hostWeights in HOGHistogram.\n");
-    exit(1);
-  }
+  cutilSafeCall(cudaMallocHost(&hostWeights, cellSizeX * blockSizeX *
+    cellSizeY * blockSizeY * sizeof(float)));
   for (i = 0; i < cellSizeX * blockSizeX; i++) {
     for (j = 0; j < cellSizeY * blockSizeY; j++) {
       tx = i - initVars.centerX;
@@ -80,7 +76,7 @@ void CopyInHOGHistogram(void) {
 }
 
 void HostFreeHOGHistogramMemory(void) {
-  free(hostWeights);
+  cutilSafeCall(cudaFreeHost(hostWeights));
   hostWeights = NULL;
 }
 

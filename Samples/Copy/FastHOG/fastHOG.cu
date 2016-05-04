@@ -19,7 +19,6 @@ cudaStream_t stream;
 
 char file_name[] = "../Samples/Copy/FastHOG/Files/Images/testImage.bmp";
 
-
 void init(int sync_level) {
   switch (sync_level) {
   case 0:
@@ -85,6 +84,7 @@ void freeCPU() {
 
 void finish() {
   FinalizeHOG();
+  DestroyHOGImage(&image);
   cudaStreamSynchronize(stream);
   cudaStreamDestroy(stream);
   if (cudaDeviceReset() != cudaSuccess) {

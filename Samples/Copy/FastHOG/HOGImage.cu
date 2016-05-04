@@ -50,3 +50,8 @@ bool HOGImageFile(const char* fileName, HOGImage *image) {
   return true;
 }
 
+void DestroyHOGImage(HOGImage *image) {
+  free(image->pixels);
+  image->pixels = NULL;
+  image->isLoaded = false;
+}
