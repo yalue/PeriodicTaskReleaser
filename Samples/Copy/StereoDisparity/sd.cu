@@ -175,13 +175,17 @@ extern "C" void init(int sync_level) {
    */
    switch (sync_level) {
     case 0:
-    cudaSetDeviceFlags(cudaDeviceScheduleSpin);
-    break;
+      cudaSetDeviceFlags(cudaDeviceScheduleSpin);
+      break;
     case 1:
-    cudaSetDeviceFlags(cudaDeviceScheduleYield);
-    break;
+      cudaSetDeviceFlags(cudaDeviceScheduleYield);
+      break;
+    case 2:
+      cudaSetDeviceFlags(cudaDeviceBlockingSync);
+      break;
     default:
-    break;
+      fprintf(stderr, "Unknown sync level: %d\n", sync_level);
+      break;
   }
 
   // Follow convention and initialize CUDA/GPU

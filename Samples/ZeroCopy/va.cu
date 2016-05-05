@@ -47,7 +47,11 @@ extern "C" void init(int sync_level) {
     case 1:
       cudaSetDeviceFlags(cudaDeviceScheduleYield);
       break;
+    case 2:
+      cudaSetDeviceFlags(cudaDeviceBlockingSync);
+      break;
     default:
+      fprintf(stderr, "Unknown sync level: %d\n", sync_level);
       break;
   }
 
