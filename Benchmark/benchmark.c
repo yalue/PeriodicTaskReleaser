@@ -52,16 +52,18 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   struct arguments *arguments = state->input;
   switch (key) {
     case 'd':
-      arguments->experiment_duration = (uint64_t) atoi(arg);
-      if (arguments->experiment_duration < 0) {
+      int duration = atoi(arg);
+      if (duration < 0) {
         return EINVAL;
       }
+      arguments->experiment_duration = (uint64_t) duration;
       break;
     case 'n':
-      arguments->iteration_count = atoi(arg);
-      if (arguments->iteration_count < 0) {
+      int iterations = atoi(arg);
+      if (iterations < 0) {
         return EINVAL;
       }
+      arguments->iteration_count = iterations;
       break;
     case 's':
       arguments->data_size = atoi(arg);
