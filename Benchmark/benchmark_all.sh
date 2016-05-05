@@ -1,6 +1,6 @@
 #!/bin/bash
 
-duration=30*60 #30 minutes
+duration=$((30*60)) #30 minutes
 sync=0 #spin
 #Samples are sd, sf, fasthog
 for sample in sd_c sf_c fasthog_c sd_zc sf_zc
