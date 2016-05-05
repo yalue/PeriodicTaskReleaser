@@ -16,6 +16,15 @@ long elapsed_ns(struct timespec *t1, struct timespec *t2) {
       (t2->tv_nsec - t1->tv_nsec));
 }
 
+// Ignores the nsec portion of the timespec, so is accurate to within one second.
+long elapsed_sec(struct timespec *t1, struct timespec *t2) {
+  if (t2->tv_nsec < t1->tv_nsec) {
+    return (long) ((t2->tv_sec - t1->tv_sec) - 1);
+  } else {
+    return (long) (t2->tv_sec - t1->tv_sec);
+  } 
+}
+
 char* format_time(struct timespec *t) {
   static char time_buf[20];
   snprintf(time_buf, 20, "%d.%.9d", (int) t->tv_sec, (int) t->tv_nsec);
