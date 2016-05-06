@@ -1,8 +1,7 @@
 # Based on the project's original makefile, re-organized for simplicity.
 .PHONY: all clean
 
-CUDA_PATH ?= /usr/local/cuda-6.5
-NVCC := $(CUDA_PATH)/bin/nvcc -ccbin g++
+NVCC := nvcc -ccbin g++
 NVCCFLAGS := --cudart shared -g --ptxas-options=-v
 INCLUDES := -I/home/ubuntu/NVIDIA_CUDA-6.5_Samples/common/inc -I.
 INCLUDES += -I/home/ubuntu/samples/NVIDIA_CUDA-6.5_Samples/common/inc
