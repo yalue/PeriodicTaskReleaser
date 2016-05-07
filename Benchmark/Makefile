@@ -5,7 +5,7 @@ HOSTARCH = $(shell uname -i)
 
 all: benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_mem_c \
 		benchmark_mem_zc benchmark_sf_c benchmark_sf_zc benchmark_sd_c benchmark_sd_zc \
-		benchmark_fasthog_c
+		benchmark_fasthog_c benchmark_fasthog_zc
 
 benchmark_va_c: benchmark.o util.o
 	cd $(SAMPLE_DIR) && make va_c.o
@@ -50,7 +50,12 @@ benchmark_sd_zc: benchmark.o util.o
 benchmark_fasthog_c: benchmark.o util.o
 	cd $(SAMPLE_DIR) && make fasthog_c.a
 	nvcc benchmark.o $(SAMPLE_DIR)/fasthog_c.a $(SAMPLE_DIR)/Copy/FastHOG/libs/libfreeimage_$(HOSTARCH).a \
-		util.o --cudart shared -g -o benchmark_fasthog_c -lpthread
+		util.o --cudart shared -g -o benchmark_fasthog_c
+
+benchmark_fasthog_zc: benchmark.o util.o
+	cd $(SAMPLE_DIR) && make fasthog_zc.a
+	nvcc benchmark.o $(SAMPLE_DIR)/fasthog_zc.a $(SAMPLE_DIR)/Copy/FastHOG/libs/libfreeimage_$(HOSTARCH).a \
+		util.o --cudart shared -g -o benchmark_fasthog_zc
 
 benchmark.o: ./benchmark.c
 	gcc -c ./benchmark.c -Wall -g $(INC)

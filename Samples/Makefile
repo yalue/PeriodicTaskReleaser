@@ -38,6 +38,11 @@ fasthog_c.a: Copy/FastHOG/fastHOG.cu
 	cd Copy/FastHOG && make fasthog.a
 	mv Copy/FastHOG/fasthog.a fasthog_c.a
 
+fasthog_zc.a: ZeroCopy/FastHOG/fastHOG.cu
+	cd ZeroCopy/FastHOG && make fasthog.a
+	mv ZeroCopy/FastHOG/fasthog.a fasthog_zc.a
+
 clean:
 	cd Copy/FastHOG && make clean
+	cd ZeroCopy/FastHOG && make clean
 	rm -rf *.o fasthog_c.a bin

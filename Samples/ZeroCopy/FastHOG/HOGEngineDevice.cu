@@ -80,8 +80,7 @@ void DeviceAllocHOGEngineDeviceMemory(void) {
     hNoOfBlocksY * hCellSizeX * hCellSizeY * hNoHistogramBins));
   cutilSafeCall(cudaMalloc(&cellHistograms, sizeof(float1) * hNoOfCellsX *
     hNoOfCellsY * hNoHistogramBins));
-  cutilSafeCall(cudaMalloc(&svmScores, sizeof(float1) * hNumberOfWindowsX *
-    hNumberOfWindowsY * scaleCount));
+  cutilSafeCall(cudaHostGetDevicePointer(&svmScores, hResult, 0));
   if (hUseGrayscale) {
     cutilSafeCall(cudaMalloc(&outputTest1, sizeof(uchar1) * hPaddedWidth *
       hPaddedHeight));
@@ -119,7 +118,6 @@ void DeviceFreeHOGEngineDeviceMemory(void) {
   cutilSafeCall(cudaFree(colorGradientsF2));
   cutilSafeCall(cudaFree(blockHistograms));
   cutilSafeCall(cudaFree(cellHistograms));
-  cutilSafeCall(cudaFree(svmScores));
   DeviceFreeHOGConvolutionMemory();
   DeviceFreeHOGHistogramMemory();
   DeviceFreeHOGSVMMemory();
