@@ -12,8 +12,8 @@ void error(char* error) {
 }
 
 long elapsed_ns(struct timespec *t1, struct timespec *t2) {
-  return (long) ((t2->tv_sec - t1->tv_sec) * NS_PER_SEC +
-      (t2->tv_nsec - t1->tv_nsec));
+  return ((long) (t2->tv_sec - t1->tv_sec) * NS_PER_SEC +
+      (long) (t2->tv_nsec - t1->tv_nsec));
 }
 
 // Ignores the nsec portion of the timespec, so is accurate to within one second.
@@ -26,8 +26,8 @@ long elapsed_sec(struct timespec *t1, struct timespec *t2) {
 }
 
 char* format_time(struct timespec *t) {
-  static char time_buf[20];
-  snprintf(time_buf, 20, "%ld.%09ld", (long) t->tv_sec, (long) t->tv_nsec);
+  static char time_buf[22];
+  snprintf(time_buf, 22, "%ld.%09ld", (long) t->tv_sec, (long) t->tv_nsec);
   return time_buf;
 }
 

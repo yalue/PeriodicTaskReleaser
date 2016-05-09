@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <argp.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #include "gpusync.h"
 #include "util.h"
@@ -15,8 +16,9 @@
 #define DEFAULT_EXPERIMENT_DURATION  1800 // 30 minutes
 #define DEFAULT_ITERATION_COUNT 2147483647 // 2^31 - 1
 #define DEFAULT_SYNC 2
+#define DEFAULT_RAND_SLEEP 0
 
-#define FIVE_MS_IN_NS 5000000 // 5 million
+#define FIFTEEN_MS_IN_NS 15000000 // 15 million
 
 /*
  * Program Args
@@ -29,7 +31,7 @@ static struct argp_option options[] = {
   {0, 0, 0, 0, "Experiment configuration parameters:"},
   {"size", 's', "data_size", 0, "Specifies the size of input data to the task. Some tasks may disregard this value."},
   {"sync", 'y', "{0|1}", 0, "Specifies how the CPU should synchronize with the GPU kernel. {0: spin, 1: yield, default: block}."},
-
+  {"randsleep", 'r', 0, OPTION_ARG_OPTIONAL, "Specifies that the program should sleep for a random amount of time between 0-15ms after each iteration."},
   {0, 0, 0, 0, "Mutual exclusive choice of GPU operations to benchmark:"},
   {"all", 'a', 0, OPTION_ARG_OPTIONAL, "Benchmarks the entire program, excluding setup and teardown. This is the default option."},
   {"copy", 'c', 0, OPTION_ARG_OPTIONAL, "Benchmarks the copy engine use only."},
@@ -46,11 +48,18 @@ struct arguments {
   uint32_t iteration_count;
   int operation;
   int sync;
+  int randsleep;
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   struct arguments *arguments = state->input;
   switch (key) {
+    case 'a':
+      arguments->operation = ALL_OPERATIONS;
+      break;
+    case 'c':
+      arguments->operation = COPY_OPERATIONS;
+      break;
     case 'd':
       {
         int duration = atoi(arg);
@@ -59,6 +68,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         }
         arguments->experiment_duration = (uint64_t) duration;
       }
+      break;
+    case 'e':
+      arguments->operation = EXEC_OPERATIONS;
       break;
     case 'n':
       {
@@ -69,20 +81,14 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         arguments->iteration_count = iterations;
       }
       break;
+    case 'r':
+      arguments->randsleep = 1;
+      break;
     case 's':
       arguments->data_size = atoi(arg);
       if (arguments->data_size < 0) {
         return EINVAL;
       }
-      break;
-    case 'a':
-      arguments->operation = ALL_OPERATIONS;
-      break;
-    case 'c':
-      arguments->operation = COPY_OPERATIONS;
-      break;
-    case 'e':
-      arguments->operation = EXEC_OPERATIONS;
       break;
     case 'y':
       arguments->sync= atoi(arg);
@@ -106,16 +112,16 @@ int main(int argc, char** argv) {
   arguments.iteration_count = (uint64_t) DEFAULT_ITERATION_COUNT;
   arguments.operation = DEFAULT_OPERATION;
   arguments.sync = DEFAULT_SYNC;
+  arguments.randsleep = DEFAULT_RAND_SLEEP;
   // Parse args
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
-  struct timespec start, end, experiment_start;
+  struct timespec start, end, experiment_start, tmp;
   int i;
 
-  if (clock_gettime(CLOCK_REALTIME, &experiment_start)) {
-    error("Error getting time.");
-    exit(EXIT_FAILURE);
-  }
+  // print output header
+  fprintf(stdout, "Timestamp, program, PID, function, call/ret, arg\n");
+  CURRENT_TIME(&experiment_start);
   // initialize end time to experiment start time.
   // this copies the primitive fields tv_sec and tv_nsec.
   end = experiment_start;
@@ -124,32 +130,60 @@ int main(int argc, char** argv) {
   mallocCPU(arguments.data_size);
 
   for (i = 0; elapsed_sec(&experiment_start, &end) < arguments.experiment_duration && i < arguments.iteration_count; ++i) {
-    if (clock_gettime(CLOCK_REALTIME, &start)) {
-      error("Error getting time.");
-      exit(EXIT_FAILURE);
-    }
+    CURRENT_TIME(&start);
+    fprintf(stdout, "%s, %s, %d, start\n", format_time(&start),
+        argv[0], getpid());
     // operation = {0: all, 1: copy engine, 2: execution engine}
     if (arguments.operation <= 1) { // (operation == 1 || operation == 0)
+      CURRENT_TIME(&tmp);
+      fprintf(stdout, "%s, %s, %d, cudaMalloc, call\n", format_time(&tmp),
+          argv[0], getpid());
       mallocGPU(arguments.data_size);
+      CURRENT_TIME(&tmp);
+      fprintf(stdout, "%s, %s, %d, cudaMalloc, return\n", format_time(&tmp),
+          argv[0], getpid());
+
+      fprintf(stdout, "%s, %s, %d, cudaMemcpy, call, hostToDevice\n",
+          format_time(&tmp), argv[0], getpid());
       copyin(arguments.data_size);
-    } else if (arguments.operation % 2 == 0) { // (operation == 2 || operation == 0)
+      CURRENT_TIME(&tmp);
+      fprintf(stdout, "%s, %s, %d, cudaMemcpy, return, hostToDevice\n",
+          format_time(&tmp), argv[0], getpid());
+    } 
+    if (arguments.operation % 2 == 0) { // (operation == 2 || operation == 0)
+      CURRENT_TIME(&tmp);
+      fprintf(stdout, "%s, %s, %d, cudaLaunch, call\n", format_time(&tmp),
+          argv[0], getpid());
       exec(arguments.data_size);
+      CURRENT_TIME(&tmp);
+      fprintf(stdout, "%s, %s, %d, cudaLaunch, return\n", format_time(&tmp),
+          argv[0], getpid());
     }
     if (arguments.operation <= 1) {
+      CURRENT_TIME(&tmp);
+      fprintf(stdout, "%s, %s, %d, cudaMemcpy, call, deviceToHost\n",
+          format_time(&tmp), argv[0], getpid());
       copyout();
+      CURRENT_TIME(&tmp);
+      fprintf(stdout, "%s, %s, %d, cudaMemcpy, return, deviceToHost\n",
+          format_time(&tmp), argv[0], getpid());
+
+      fprintf(stdout, "%s, %s, %d, cudaFree, call\n", format_time(&tmp),
+          argv[0], getpid());
       freeGPU();
+      CURRENT_TIME(&tmp);
+      fprintf(stdout, "%s, %s, %d, cudaFree, return\n", format_time(&tmp),
+          argv[0], getpid());
     }
-    if (clock_gettime(CLOCK_REALTIME, &end)) {
-      error("Error getting time.");
-      exit(EXIT_FAILURE);
-    }
-    fprintf(stdout, "%3ld,\n", elapsed_ns(&start, &end));
+    CURRENT_TIME(&end);
+    fprintf(stdout, "%s, %s, %d, elapsed time, %3ld,\n", format_time(&end),
+        argv[0], getpid(), elapsed_ns(&start, &end));
     
     // Sleep for small amount of time to emulate periodicity.
-    {
+    if (arguments.randsleep) {
       struct timespec delay;
       delay.tv_sec = 0;
-      delay.tv_nsec = FIVE_MS_IN_NS;
+      delay.tv_nsec = rand() % FIFTEEN_MS_IN_NS;
       nanosleep(&delay, NULL);
     }
   }

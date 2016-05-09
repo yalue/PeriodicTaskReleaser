@@ -7,6 +7,6 @@ for sample in sd_c sf_c fasthog_c sd_zc sf_zc fasthog_zc
 do
   all_out="SCHED_OTHER/${sample}/"
   mkdir -p $all_out 
-  stdbuf -oL ./benchmark_${sample} -y${sync} -d${duration} --all > $all_out/results.csv
+  stdbuf -oL ./benchmark_${sample} -y${sync} -d${duration} --all > $all_out/results.csv &
 done
 
