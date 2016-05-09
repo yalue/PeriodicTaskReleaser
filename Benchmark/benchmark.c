@@ -128,6 +128,10 @@ int main(int argc, char** argv) {
 
   init(arguments.sync);
   mallocCPU(arguments.data_size);
+  if (arguments.operation == 2) {
+    mallocGPU(arguments.data_size);
+    copyin(arguments.data_size);
+  }
 
   for (i = 0; elapsed_sec(&experiment_start, &end) < arguments.experiment_duration && i < arguments.iteration_count; ++i) {
     CURRENT_TIME(&start);
@@ -149,8 +153,7 @@ int main(int argc, char** argv) {
       CURRENT_TIME(&tmp);
       fprintf(stdout, "%s, %s, %d, cudaMemcpy, return, hostToDevice\n",
           format_time(&tmp), argv[0], getpid());
-    } 
-    if (arguments.operation % 2 == 0) { // (operation == 2 || operation == 0)
+    } else if (arguments.operation % 2 == 0) { // (operation == 2 || operation == 0)
       CURRENT_TIME(&tmp);
       fprintf(stdout, "%s, %s, %d, cudaLaunch, call\n", format_time(&tmp),
           argv[0], getpid());
@@ -186,6 +189,10 @@ int main(int argc, char** argv) {
       delay.tv_nsec = rand() % FIFTEEN_MS_IN_NS;
       nanosleep(&delay, NULL);
     }
+  }
+  if (arguments.operation == 2) {
+    copyout();
+    freeGPU();
   }
   freeCPU();
   finish();
