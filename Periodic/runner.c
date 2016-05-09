@@ -73,7 +73,7 @@ void * runner(void *runner_args) {
     fprintf(ostream, "FINISH, %d, %s\n", i, format_time(&end_time));
 
     // Print summary information
-    fprintf(ostream, "SUMMARY, %d, used, %ld, unused %lld\n", i,
+    fprintf(ostream, "SUMMARY, %d, used, %ld, unused, %lld\n", i,
         elapsed_ns(&start_time, &end_time), period - elapsed_ns(&start_time, &end_time));
     fflush(ostream);
 

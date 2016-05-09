@@ -122,7 +122,7 @@ void launchThreads(int data_size, int period, int n_runners, int worst_case, int
     pthread_mutex_lock(&thread_mutexes[i]);
 
     // Create output files for each runner
-    snprintf(file_name, sizeof(char) * MAX_FILE_NAME, "runner%i.txt", i);
+    snprintf(file_name, sizeof(char) * MAX_FILE_NAME, "runner%i.csv", i);
     output_files[i] = (fopen(file_name,"w"));
     if (!output_files[i]) {
       fprintf(stderr, "Error opening output file %s\n.", file_name);
