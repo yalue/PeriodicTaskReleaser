@@ -12,4 +12,7 @@ long elapsed_sec(struct timespec *t1, struct timespec *t2);
 
 char* format_time(struct timespec *t);
 
-void timespec_offset(struct timespec *result, struct timespec *start, int ms);
+void timespec_offset(struct timespec *result, struct timespec *start, long long ms);
+
+int timespec_compare(struct timespec *t1, struct timespec *t2);
+

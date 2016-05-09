@@ -17,6 +17,7 @@
 #define DEFAULT_N_RUNNERS 1 // 1 runner
 #define DEFAULT_WORST_CASE 33333333 // 33.3 ms
 #define DEFAULT_EXPERIMENT_DURATION 10 // 10 seconds
+#define DEFAULT_SYNC 2 // block
 #define MAX_FILE_NAME 32
 
 /*
@@ -139,7 +140,7 @@ void launchThreads(int data_size, int period, int n_runners, int worst_case, int
     runner_args[i].worst_case = worst_case;
     runner_args[i].sync = sync;
 
-    fprintf(stderr, "Thread %d period: %d ns\n", i, runner_args[i].period);
+    fprintf(stderr, "Thread %d period: %lld ns\n", i, runner_args[i].period);
   }
   // Create runners
   for (i = 0; i < n_runners; ++i) {
@@ -169,7 +170,7 @@ void launchThreads(int data_size, int period, int n_runners, int worst_case, int
     }
     // Record start time
     clock_gettime(CLOCK_REALTIME, &start_time);
-    timespec_offset(&end_time, &start_time, experiment_duration * NS_PER_SEC);
+    timespec_offset(&end_time, &start_time, ((long long) experiment_duration) * NS_PER_SEC);
     // Release runners
     for (i = 0; i < n_runners; ++i) {
       pthread_mutex_unlock(&thread_mutexes[i]);
@@ -205,6 +206,7 @@ int main(int argc, char *argv[]) {
   arguments.n_runners = DEFAULT_N_RUNNERS;
   arguments.worst_case = DEFAULT_WORST_CASE;
   arguments.experiment_duration = DEFAULT_EXPERIMENT_DURATION;
+  arguments.sync = DEFAULT_SYNC;
   // Parse args
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
   launchThreads(arguments.data_size, arguments.period, arguments.n_runners, arguments.worst_case, arguments.experiment_duration, arguments.sync);
