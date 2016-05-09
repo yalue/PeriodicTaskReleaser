@@ -1,6 +1,6 @@
 #!/bin/bash
 
-duration=$((10)) #30 minutes
+duration=$((30*60)) #30 minutes
 sync=0 #spin
 #Samples are sd, sf, fasthog
 for config in all copy exec
