@@ -81,9 +81,9 @@ void * runner(void *runner_args) {
     i++;
     timespec_offset(&next_release, &launch_time, i * period);
     while (timespec_compare(&next_release, &end_time) <= 0 && i < MAX_ITERATIONS) {
+      fprintf(ostream, "DROP_FRAME, %d\n", i);
       i++;
       timespec_offset(&next_release, &launch_time, i * period);
-      fprintf(stderr, "Missed release %d.\n", i);
     }
   }
   pthread_barrier_wait(barrier);
