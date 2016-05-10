@@ -313,7 +313,6 @@ void initializeData(char *file) {
 }
 
 void loadDefaultImage() {
-  printf("Reading image: lena.pgm\n");
   initializeData(image_path);
 }
 
@@ -395,7 +394,6 @@ extern "C" void copyin(int num_elements) {
 }
 
 extern "C" void exec(int num_elements) {
-  printf("AutoTest: %s\n", sSDKsample);
   SobelShared <<< blocks, threads, sharedMem, stream>>>((uchar4 *) d_result, imWidth,
 #ifndef FIXED_BLOCKWIDTH
       BlockWidth, SharedPitch,

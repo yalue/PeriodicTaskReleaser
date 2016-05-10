@@ -97,43 +97,6 @@ int iDivUp(int a, int b) {
 ////////////////////////////////////////////////////////////////////////////////
 //! CUDA Sample for calculating depth maps
 ////////////////////////////////////////////////////////////////////////////////
-    //initalize the memory for output data to zeros
-    // for (unsigned int i = 0; i < numData; i++)
-      // h_odata[i] = 0;
-
-#ifdef PRINT_CHECKSUM
-  // calculate sum of resultant GPU image
-  // This verification is applied only to the
-  // last result computed
-  unsigned int checkSum = 0;
-  for (unsigned int i=0 ; i<w *h ; i++) {
-    checkSum += h_odata[i];
-  }
-  if (checkSum == 4293895789) //valid checksum only for these two images
-    printf("PID %d Test PASSED\n", my_pid);
-  else {
-    fprintf(stderr, "PID %d verification failed, GPU Checksum = %u, ", my_pid, checkSum);
-    exit(-1);
-  }
-#endif
-#ifdef WRITE_DISPARITY
-  // write out the resulting disparity image.
-  // creates file in directory containing executable
-  unsigned char *dispOut = (unsigned char *) malloc(numData);
-  int mult = 20;
-
-  char fnameOut[50] = "";
-  sprintf(fnameOut,"PID_%d_", my_pid);
-  strcat(fnameOut, "output_GPU.pgm");
-
-  for (unsigned int i=0; i<numData; i++) {
-    dispOut[i] = (int) h_odata[i]*mult;
-  }
-
-  printf("GPU image: <%s>\n", fnameOut);
-  sdkSavePGM(fnameOut, dispOut, w, h);
-  if (dispOut != NULL) free(dispOut);
-#endif
 
 // Override helper_image.h
 inline bool loadPPM4ub(const char *file, unsigned char **data,

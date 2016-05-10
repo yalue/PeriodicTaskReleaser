@@ -3,7 +3,7 @@
 struct Runner_Args {
   int isActive;
   int datasize;
-  int period;
+  long long period;
   int worst_case;
   int sync;
 
