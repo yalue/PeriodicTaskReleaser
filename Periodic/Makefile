@@ -1,10 +1,10 @@
 SAMPLE_DIR = ../Samples
 UTIL_DIR = ../util
 INC = -I$(UTIL_DIR) -I$(SAMPLE_DIR)
-HOSTARCH = $(shell uname -i)
+HOSTARCH = armv7l
 
 all: launcher_va_c launcher_va_zc launcher_mm_c launcher_mm_zc launcher_sf_c launcher_sf_zc launcher_sd_c \
-	launcher_sd_zc launcher_fasthog_c
+	launcher_sd_zc launcher_fasthog_c launcher_fasthog_zc launcher_convbench_c launcher_convbench_zc
 
 launcher_mm_zc: launcher.o  runner.o util.o 
 	cd $(SAMPLE_DIR) && make mm_zc.o
@@ -42,6 +42,21 @@ launcher_fasthog_c: launcher.o runner.o util.o
 	cd $(SAMPLE_DIR) && make fasthog_c.a
 	nvcc launcher.o $(SAMPLE_DIR)/fasthog_c.a $(SAMPLE_DIR)/Copy/FastHOG/libs/libfreeimage_$(HOSTARCH).a \
 		runner.o util.o --cudart shared -g -o launcher_fasthog_c -lpthread
+
+launcher_fasthog_zc: launcher.o runner.o util.o
+	cd $(SAMPLE_DIR) && make fasthog_zc.a
+	nvcc launcher.o $(SAMPLE_DIR)/fasthog_zc.a $(SAMPLE_DIR)/Copy/FastHOG/libs/libfreeimage_$(HOSTARCH).a \
+		runner.o util.o --cudart shared -g -o launcher_fasthog_zc -lpthread
+
+launcher_convbench_c: launcher.o runner.o util.o
+	cd $(SAMPLE_DIR) && make convbench_c.a
+	nvcc launcher.o $(SAMPLE_DIR)/convbench_c.a runner.o util.o --cudart shared -g -o launcher_convbench_c \
+		-lpthread
+
+launcher_convbench_zc: launcher.o runner.o util.o
+	cd $(SAMPLE_DIR) && make convbench_zc.a
+	nvcc launcher.o $(SAMPLE_DIR)/convbench_zc.a runner.o util.o --cudart shared -g -o launcher_convbench_zc \
+		-lpthread
 
 runner.o: runner.c
 	gcc -c runner.c -Wall -g $(INC)

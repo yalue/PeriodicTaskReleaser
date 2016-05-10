@@ -2,7 +2,8 @@ INC = -I/home/ubuntu/NVIDIA_CUDA-6.5_Samples/common/inc -I.
 INC += -I/home/ubuntu/samples/NVIDIA_CUDA-6.5_Samples/common/inc
 INC += -I/home/ubuntu/NVIDIA_CUDA_7.0/common/inc
 
-all: mem_c.o va_c.o mm_c.o mem_zc.o va_zc.o mm_zc.o sf_c.o sf_zc.o sd_c.o sd_zc.o fasthog_c.a
+all: mem_c.o va_c.o mm_c.o mem_zc.o va_zc.o mm_zc.o sf_c.o sf_zc.o sd_c.o sd_zc.o \
+	fasthog_c.a fasthog_zc.a convbench_c.a convbench_zc.a
 
 mem_c.o: Copy/mem.cu
 	nvcc -c Copy/mem.cu -o mem_c.o --cudart shared -g --ptxas-options=-v
@@ -34,15 +35,25 @@ va_zc.o: ZeroCopy/va.cu
 mm_zc.o: ZeroCopy/mm.cu
 	nvcc -c ZeroCopy/mm.cu -o mm_zc.o --cudart shared -g --ptxas-options=-v
 
-fasthog_c.a: Copy/FastHOG/fastHOG.cu
+fasthog_c.a:
 	cd Copy/FastHOG && make fasthog.a
-	mv Copy/FastHOG/fasthog.a fasthog_c.a
+	cp Copy/FastHOG/fasthog.a fasthog_c.a
 
-fasthog_zc.a: ZeroCopy/FastHOG/fastHOG.cu
+fasthog_zc.a:
 	cd ZeroCopy/FastHOG && make fasthog.a
-	mv ZeroCopy/FastHOG/fasthog.a fasthog_zc.a
+	cp ZeroCopy/FastHOG/fasthog.a fasthog_zc.a
+
+convbench_c.a:
+	cd Copy/convbench && make convbench.a
+	cp Copy/convbench/convbench.a convbench_c.a
+
+convbench_zc.a:
+	cd ZeroCopy/convbench && make convbench.a
+	cp ZeroCopy/convbench/convbench.a convbench_zc.a
 
 clean:
 	cd Copy/FastHOG && make clean
 	cd ZeroCopy/FastHOG && make clean
-	rm -rf *.o fasthog_c.a bin
+	cd Copy/convbench && make clean
+	cd ZeroCopy/convbench && make clean
+	rm -f *.o fasthog_c.a fasthog_zc.a convbench_c.a convbench_zc.a
