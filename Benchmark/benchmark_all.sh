@@ -3,38 +3,40 @@
 duration=$((30*60)) #30 minutes
 sync=0 #spin
 #Samples are sd, sf, fasthog
-for config in all copy exec
+out="benchmark"
+mkdir -p $out 
+for copy in c zc
 do
-  out="benchmark/${config}"
-  mkdir -p $out 
-  for copy in c zc
+  for sample in sd sf fasthog mm
   do
-    for sample in sd sf fasthog mm
-    do
-      echo $sample $copy $config
-      stdbuf -oL ./benchmark_${sample}_${copy} --sync ${sync} --duration ${duration} --size 262144 --${config} > ${out}/${sample}_${copy}.csv
-    done
+    echo $sample $copy $config
+    stdbuf -oL ./benchmark_${sample}_${copy} --sync ${sync} --duration ${duration} --size 262144 --${config} > ${out}/${sample}_${copy}.csv &
+    pid=$!
+
+    ./cpu_log.sh $pid ${out}/${sample}_${copy}_cpu.txt ./benchmark_${sample}_${copy}
+    wait $pid
   done
 done
 
 # now four concurrent processes
-for config in all copy exec
+out="parallel_benchmark/${config}"
+mkdir -p $out 
+for copy in c zc
 do
-  out="parallel_benchmark/${config}"
-  mkdir -p $out 
-  for copy in c zc
+  i=0
+  for sample in sd sf fasthog mm
   do
-    i=0
-    for sample in sd sf fasthog mm
-    do
-      echo $sample $copy $config parallel
-      stdbuf -oL ./benchmark_${sample}_${copy} --sync ${sync} --duration ${duration} --size 262144 --${config} > ${out}/${sample}_${copy}.csv &
-      pids[$i]=$!
-      i=$(($i+1))
-    done
-    for pid in $pids
-    do
-      wait $pid
-    done
+    echo $sample $copy $config parallel
+    stdbuf -oL ./benchmark_${sample}_${copy} --sync ${sync} --duration ${duration} --size 262144 --${config} > ${out}/${sample}_${copy}.csv &
+    pids[$i]=$!
+
+    ./cpu_log.sh $! ${out}/${sample}_${copy}_cpu.txt ./benchmark_${sample}_${copy} &
+ 
+    i=$(($i+1))
+  done
+  for pid in $pids
+  do
+    wait $pid
   done
 done
+
