@@ -157,8 +157,8 @@ int main(int argc, char** argv) {
         argv[0], getpid());
  
     CURRENT_TIME(&end);
-    fprintf(stdout, "%s, %s, %d, elapsed time, .%09ld,\n", format_time(&end),
-        argv[0], getpid(), elapsed_ns(&start, &tmp));
+    fprintf(stdout, "%s, %s, %d, end\n", format_time(&end),
+        argv[0], getpid());
     
     // Sleep for small amount of time to emulate periodicity.
     struct timespec delay;
