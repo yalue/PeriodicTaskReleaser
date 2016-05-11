@@ -30,11 +30,11 @@ cudaStream_t stream;
 // Memory regions
 float *hA, *hB, *hC;
 float *dA, *dB, *dC;
-size_t vector_len;
+size_t vector_bytes;
 int v_threadsPerBlock;
 int v_blocksPerGrid;
 
-extern "C" void init(int sync_level) {
+void init(int sync_level) {
   /*
    * The sync_level parameter is an integer that indicates the desired level of
    * synchronization used by the GPU driver (values defined below).  The
@@ -67,26 +67,26 @@ extern "C" void init(int sync_level) {
   cudaStreamCreate(&stream);
 }
 
-extern "C" void mallocCPU(int numElements) {
-  vector_len = numElements * sizeof(float);
+void mallocCPU(int numElements) {
+  vector_bytes = numElements * sizeof(float);
 
   // Host allocations in pinned memory
   // Allocate the host input vector A
-  cudaError_t err = cudaMallocHost((void **) &hA, vector_len);
+  cudaError_t err = cudaMallocHost((void **) &hA, vector_bytes);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host vector A (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Allocate the host input vector B
-  err = cudaMallocHost((void **) &hB, vector_len);
+  err = cudaMallocHost((void **) &hB, vector_bytes);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host vector B (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Allocate the host output vector C
-  err = cudaMallocHost((void **)&hC, vector_len);
+  err = cudaMallocHost((void **)&hC, vector_bytes);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host vector C (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -102,33 +102,33 @@ extern "C" void mallocCPU(int numElements) {
 }
 
 
-extern "C" void mallocGPU(int numElements) {
+void mallocGPU(int numElements) {
   // Allocate the device input vector A
-  cudaError_t err = cudaMalloc((void **)&dA, vector_len);
+  cudaError_t err = cudaMalloc((void **)&dA, vector_bytes);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device vector A (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Allocate the device input vector B
-  err = cudaMalloc((void **)&dB, vector_len);
+  err = cudaMalloc((void **)&dB, vector_bytes);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device vector B (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Allocate the device output vector C
-  err = cudaMalloc((void **)&dC, vector_len);
+  err = cudaMalloc((void **)&dC, vector_bytes);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device vector C (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 }
 
-extern "C" void copyin(int numElements) {
+void copyin(int numElements) {
   // copy the A and B vectors from Host to Device memory
   // these calls are asynchronous so only the lock of CE can be handled in the wrapper
-  cudaError_t err = cudaMemcpyAsync(dA, hA, vector_len, cudaMemcpyHostToDevice, stream);
+  cudaError_t err = cudaMemcpyAsync(dA, hA, vector_bytes, cudaMemcpyHostToDevice, stream);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to copy vector A from host to device (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -138,7 +138,7 @@ extern "C" void copyin(int numElements) {
   // the wrapper for this function releases any lock held (CE here)
   cudaStreamSynchronize(stream);
 
-  err = cudaMemcpyAsync(dB, hB, vector_len, cudaMemcpyHostToDevice, stream);
+  err = cudaMemcpyAsync(dB, hB, vector_bytes, cudaMemcpyHostToDevice, stream);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to copy vector B from host to device (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -149,7 +149,7 @@ extern "C" void copyin(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-extern "C" void exec(int numElements) {
+void exec(int numElements) {
   cudaError_t err = cudaSuccess;
 
   // Launch the Vector Add CUDA Kernel
@@ -166,10 +166,10 @@ extern "C" void exec(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-extern "C" void copyout() {
+void copyout() {
   // Copy the result vector from Device to Host memory
   // This call is asynchronous so only the lock of CE can be handled in the wrapper
-  cudaError_t err = cudaMemcpyAsync(hC, dC, vector_len, cudaMemcpyDeviceToHost, stream);
+  cudaError_t err = cudaMemcpyAsync(hC, dC, vector_bytes, cudaMemcpyDeviceToHost, stream);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to copy vector C from device to host (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -180,7 +180,7 @@ extern "C" void copyout() {
   cudaStreamSynchronize(stream);
 }
 
-extern "C" void freeGPU() {
+void freeGPU() {
   // Free device global memory for inputs A and B and result C
   cudaError_t err = cudaFree(dA);
   if (err != cudaSuccess) {
@@ -201,14 +201,14 @@ extern "C" void freeGPU() {
   }
 }
 
-extern "C" void freeCPU() {
+void freeCPU() {
   // Free host memory that was pinned
   cudaFreeHost(hA);
   cudaFreeHost(hB);
   cudaFreeHost(hC);
 }
- 
-extern "C" void finish() {
+
+void finish() {
   // clean up the user allocated stream
   cudaStreamSynchronize(stream);
   cudaStreamDestroy(stream);

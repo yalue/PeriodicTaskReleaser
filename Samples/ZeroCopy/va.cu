@@ -29,7 +29,7 @@ cudaStream_t stream;
 // Memory regions
 float *hA, *hB, *hC;
 float *dA, *dB, *dC;
-size_t vector_len;
+size_t vector_bytes;
 int v_threadsPerBlock;
 int v_blocksPerGrid;
 
@@ -70,25 +70,25 @@ extern "C" void init(int sync_level) {
 }
 
 extern "C" void mallocCPU(int numElements) {
-  vector_len = numElements * sizeof(float);
+  vector_bytes = numElements * sizeof(float);
 
   // Host allocations in pinned memory
   // Allocate the host input vector A
-  cudaError_t err = cudaHostAlloc((void **) &hA, vector_len, cudaHostAllocMapped);
+  cudaError_t err = cudaHostAlloc((void **) &hA, vector_bytes, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host vector A (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Allocate the host input vector B
-  err = cudaHostAlloc((void **) &hB, vector_len, cudaHostAllocMapped);
+  err = cudaHostAlloc((void **) &hB, vector_bytes, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host vector B (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Allocate the host output vector C
-  err = cudaHostAlloc((void **)&hC, vector_len, cudaHostAllocMapped);
+  err = cudaHostAlloc((void **)&hC, vector_bytes, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host vector C (error code %s)!\n", cudaGetErrorString(err));
     return;

@@ -121,14 +121,14 @@ cudaStream_t stream;
 
 float *hA, *hB, *hC;
 float *dA, *dB, *dC;
-unsigned int matrix_size;
+unsigned int mem_size;
 
 dim3 dimsA;
 dim3 dimsB;
 dim3 threads;
 dim3 grid;
 
-extern "C" void init(int sync_level) {
+void init(int sync_level) {
   /*
    * The sync_level parameter is an integer that indicates the desired level of
    * synchronization used by the GPU driver (values defined below).  The
@@ -160,69 +160,69 @@ extern "C" void init(int sync_level) {
   cudaStreamCreate(&stream);
 }
 
-extern "C" void mallocCPU(int numElements) {
-  int mem_size = sqrt(numElements) * sqrt(numElements);
+void mallocCPU(int numElements) {
+  int matrix_size = sqrt(numElements) * sqrt(numElements);
 
   // Allocate host memory for matrices A and B
-  matrix_size = sizeof(float) * mem_size;
-  cudaError_t err = cudaMallocHost((void **) &hA, matrix_size);
+  mem_size = sizeof(float) * matrix_size;
+  cudaError_t err = cudaMallocHost((void **) &hA, mem_size);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host memory A (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
-  err = cudaMallocHost((void **) &hB, matrix_size);
+  err = cudaMallocHost((void **) &hB, mem_size);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host memory B (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
   // Allocate host matrix C
-  err = cudaMallocHost((void **) &hC, matrix_size);
+  err = cudaMallocHost((void **) &hC, mem_size);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host memory C (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Initialize host memory
-  constantInit(hA, mem_size, 1.0f);
-  constantInit(hB, mem_size, 0.01f);
+  constantInit(hA, matrix_size, 1.0f);
+  constantInit(hB, matrix_size, 0.01f);
 
   // Setup execution parameters
   int block_size = 16;
   dimsA = dim3(5*2*block_size, 5*2*block_size, 1);
-  dimsA.x = sqrt(mem_size);
-  dimsA.y = sqrt(mem_size);
+  dimsA.x = sqrt(matrix_size);
+  dimsA.y = sqrt(matrix_size);
   dimsB = dim3(5*4*block_size, 5*2*block_size, 1);
-  dimsB.x = sqrt(mem_size);
-  dimsB.y = sqrt(mem_size);
+  dimsB.x = sqrt(matrix_size);
+  dimsB.y = sqrt(matrix_size);
   threads = dim3(block_size, block_size);
   grid = dim3(ceil(dimsB.x / (float) threads.x), ceil(dimsA.y / (float) threads.y));
 }
 
-extern "C" void mallocGPU(int numElements) {
-  int mem_size = sqrt(numElements) * sqrt(numElements);
+void mallocGPU(int numElements) {
+  int matrix_size = sqrt(numElements) * sqrt(numElements);
 
   // Allocate device memory
-  cudaError_t err = cudaMalloc((void **) &dA, matrix_size);
+  cudaError_t err = cudaMalloc((void **) &dA, mem_size);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device memory A (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
-  err = cudaMalloc((void **) &dB, matrix_size);
+  err = cudaMalloc((void **) &dB, mem_size);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device memory B (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
-  err = cudaMalloc((void **) &dC, matrix_size);
+  err = cudaMalloc((void **) &dC, mem_size);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate device memory C (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 }
 
-extern "C" void copyin(int numElements) {
+void copyin(int numElements) {
   // copy the A and B blocks from Host to Device memory
   // these calls are asynchronous so only the lock of CE can be handled in the wrapper
-  cudaError_t err = cudaMemcpyAsync(dA, hA, matrix_size, cudaMemcpyHostToDevice, stream);
+  cudaError_t err = cudaMemcpyAsync(dA, hA, mem_size, cudaMemcpyHostToDevice, stream);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to copy memory A from host to device (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -232,7 +232,7 @@ extern "C" void copyin(int numElements) {
   // the wrapper for this function releases any lock held (CE here)
   cudaStreamSynchronize(stream);
 
-  err = cudaMemcpyAsync(dB, hB, matrix_size, cudaMemcpyHostToDevice, stream);
+  err = cudaMemcpyAsync(dB, hB, mem_size, cudaMemcpyHostToDevice, stream);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to copy memory B from host to device (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -243,7 +243,7 @@ extern "C" void copyin(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-extern "C" void exec(int numElements) {
+void exec(int numElements) {
   cudaError_t err = cudaSuccess;
   matrixMulCUDA<16><<< grid, threads, 0, stream>>>(dC, dA, dB, dimsA.x, dimsB.x);
   err = cudaGetLastError();
@@ -256,10 +256,10 @@ extern "C" void exec(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-extern "C" void copyout() {
+void copyout() {
   // copy the result memory from Device to Host memory
   // this call is asynchronous so only the lock of CE can be handled in the wrapper
-  cudaError_t err = cudaMemcpyAsync(hC, dC, matrix_size, cudaMemcpyDeviceToHost, stream);
+  cudaError_t err = cudaMemcpyAsync(hC, dC, mem_size, cudaMemcpyDeviceToHost, stream);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to copy memory C from device to host (error code %s)!\n", cudaGetErrorString(err));
     return;
@@ -269,7 +269,7 @@ extern "C" void copyout() {
   cudaStreamSynchronize(stream);
 }
 
-extern "C" void freeGPU() {
+void freeGPU() {
   // Free device global memory for inputs A and B and result C
   cudaError_t err = cudaFree(dA);
   if (err != cudaSuccess) {
@@ -290,14 +290,14 @@ extern "C" void freeGPU() {
   }
 }
 
-extern "C" void freeCPU() {
+void freeCPU() {
   // Free host memory that was pinned
   cudaFreeHost(hA);
   cudaFreeHost(hB);
   cudaFreeHost(hC);
 }
 
-extern "C" void finish() {
+void finish() {
   // clean up the user allocated stream
   cudaStreamSynchronize(stream);
   cudaStreamDestroy(stream);

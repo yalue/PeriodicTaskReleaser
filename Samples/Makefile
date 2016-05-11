@@ -3,10 +3,16 @@ INC += -I/home/ubuntu/samples/NVIDIA_CUDA-6.5_Samples/common/inc
 INC += -I/home/ubuntu/NVIDIA_CUDA_7.0/common/inc
 
 all: mem_c.o va_c.o mm_c.o mem_zc.o va_zc.o mm_zc.o sf_c.o sf_zc.o sd_c.o sd_zc.o \
-	fasthog_c.a fasthog_zc.a convbench_c.a convbench_zc.a
+	fasthog_c.a fasthog_zc.a convbench_c.a convbench_zc.a va_cpu.o mm_cpu.o
 
 mem_c.o: Copy/mem.cu
 	nvcc -c Copy/mem.cu -o mem_c.o --cudart shared -g --ptxas-options=-v
+
+va_cpu.o: CPU/va.c
+	gcc -c CPU/va.c -o va_cpu.o
+
+mm_cpu.o: CPU/mm.c
+	gcc -c CPU/mm.c -o mm_cpu.o
 
 va_c.o: Copy/va.cu
 	nvcc -c Copy/va.cu -o va_c.o --cudart shared -g --ptxas-options=-v

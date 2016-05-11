@@ -121,14 +121,14 @@ cudaStream_t stream;
 
 float *hA, *hB, *hC;
 float *dA, *dB, *dC;
-unsigned int matrix_size;
+unsigned int mem_size;
 
 dim3 dimsA;
 dim3 dimsB;
 dim3 threads;
 dim3 grid;
 
-extern "C" void init(int sync_level) {
+void init(int sync_level) {
   /*
    * The sync_level parameter is an integer that indicates the desired level of
    * synchronization used by the GPU driver (values defined below).  The
@@ -163,45 +163,45 @@ extern "C" void init(int sync_level) {
   cudaStreamCreate(&stream);
 }
 
-extern "C" void mallocCPU(int numElements) {
-  int mem_size = sqrt(numElements) * sqrt(numElements);
+void mallocCPU(int numElements) {
+  int matrix_size = sqrt(numElements) * sqrt(numElements);
 
   // Allocate host memory for matrices A and B
-  matrix_size = sizeof(float) * mem_size;
-  cudaError_t err = cudaHostAlloc((void **) &hA, matrix_size, cudaHostAllocMapped);
+  mem_size = sizeof(float) * matrix_size;
+  cudaError_t err = cudaHostAlloc((void **) &hA, mem_size, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host memory A (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
-  err = cudaHostAlloc((void **) &hB, matrix_size, cudaHostAllocMapped);
+  err = cudaHostAlloc((void **) &hB, mem_size, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host memory B (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
   // Allocate host matrix C
-  err = cudaHostAlloc((void **) &hC, matrix_size, cudaHostAllocMapped);
+  err = cudaHostAlloc((void **) &hC, mem_size, cudaHostAllocMapped);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to allocate host memory C (error code %s)!\n", cudaGetErrorString(err));
     return;
   }
 
   // Initialize host memory
-  constantInit(hA, mem_size, 1.0f);
-  constantInit(hB, mem_size, 0.01f);
+  constantInit(hA, matrix_size, 1.0f);
+  constantInit(hB, matrix_size, 0.01f);
 
   // Setup execution parameters
   int block_size = 16;
   dimsA = dim3(5*2*block_size, 5*2*block_size, 1);
-  dimsA.x = sqrt(mem_size);
-  dimsA.y = sqrt(mem_size);
+  dimsA.x = sqrt(matrix_size);
+  dimsA.y = sqrt(matrix_size);
   dimsB = dim3(5*4*block_size, 5*2*block_size, 1);
-  dimsB.x = sqrt(mem_size);
-  dimsB.y = sqrt(mem_size);
+  dimsB.x = sqrt(matrix_size);
+  dimsB.y = sqrt(matrix_size);
   threads = dim3(block_size, block_size);
   grid = dim3(ceil(dimsB.x / (float) threads.x), ceil(dimsA.y / (float) threads.y));
 }
 
-extern "C" void mallocGPU(int numElements) {
+void mallocGPU(int numElements) {
   // Allocate device memory
   cudaError_t err = cudaHostGetDevicePointer((void **) &dA, (void *) hA, 0);
   if (err != cudaSuccess) {
@@ -224,11 +224,11 @@ extern "C" void mallocGPU(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-extern "C" void copyin(int numElements) { 
+void copyin(int numElements) { 
   // NOP
 }
 
-extern "C" void exec(int numElements) {
+void exec(int numElements) {
   cudaError_t err = cudaSuccess;
   matrixMulCUDA<16><<< grid, threads, 0, stream>>>(dC, dA, dB, dimsA.x, dimsB.x);
   err = cudaGetLastError();
@@ -241,22 +241,22 @@ extern "C" void exec(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-extern "C" void copyout() {
+void copyout() {
   // NOP
 }
 
-extern "C" void freeGPU() {
+void freeGPU() {
   // NOP
 }
 
-extern "C" void freeCPU() {
+void freeCPU() {
   // Free host memory that was pinned
   cudaFreeHost(hA);
   cudaFreeHost(hB);
   cudaFreeHost(hC);
 }
 
-extern "C" void finish() {
+void finish() {
   // clean up the user allocated stream
   cudaStreamSynchronize(stream);
   cudaStreamDestroy(stream);
