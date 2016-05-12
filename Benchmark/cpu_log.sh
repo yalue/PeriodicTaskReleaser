@@ -1,3 +1,10 @@
+#!/bin/bash
+
+# Log CPU and memory usage of a process.
+# Parameter 1: pid.
+# Paramter 2: output file.
+# Parameter 3: Program name (for logging information only).
+
 pid=$1
 outfile=$2
 pname=$3
