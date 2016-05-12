@@ -1,6 +1,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
+
 #include "../gpusync.h"
 
 float *matrix_a, *matrix_b, *result_matrix;
@@ -62,6 +64,11 @@ void mallocCPU(int numElements) {
   result_matrix = (float *) malloc(mem_size);
   if (!result_matrix) {
     printf("Failed allocating result matrix.\n");
+    exit(1);
+  }
+  if(!mlockall(MCL_CURRENT)) {
+    error(stderr, "Failed to lock code pages.");
+    exit(0);
   }
 }
 

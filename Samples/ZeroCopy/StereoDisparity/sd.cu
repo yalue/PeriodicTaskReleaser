@@ -39,6 +39,7 @@
 #include <string.h>
 #include <math.h>
 #include <sys/types.h>
+#include <sys/mman.h>
 #include <unistd.h>
 #include <sched.h>
 #include <errno.h>
@@ -155,6 +156,12 @@ extern "C" void init(int sync_level) {
   // used here to invoke initialization of GPU locking
   cudaFree(0);
   
+  // Pin code
+  if(!mlockall(MCL_CURRENT)) {
+    fprintf(stderr, "Failed to lock code pages.\n");
+    exit(EXIT_FAILURE);
+  }
+
   // Set the device context 
   cudaSetDevice(0);
 

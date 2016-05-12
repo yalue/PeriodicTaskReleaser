@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cuda_runtime.h>
+#include <sys/mman.h>
+
 #include "helper_cuda_pure_c.h"
 #include "im2col.h"
 #include "matrixMul.h"
@@ -78,6 +80,13 @@ void init(int sync_level) {
     printf("Error running cudaFree(0).\n");
     exit(1);
   }
+
+  // Pin code
+  if(!mlockall(MCL_CURRENT)) {
+    fprintf(stderr, "Failed to lock code pages.\n");
+    exit(EXIT_FAILURE);
+  }
+
   if (cudaStreamCreate(&stream) != cudaSuccess) {
     printf("Unable to create cuda stream.\n");
     exit(1);

@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
+
 #include "../gpusync.h"
 
 float *vector_a, *vector_b, *result_vector;
@@ -47,6 +49,10 @@ void mallocCPU(int numElements) {
   result_vector = (float *) malloc(vector_bytes);
   if (!result_vector) {
     printf("Failed allocating vector C.\n");
+    exit(1);
+  }
+  if (!mlockall(MCL_CURRENT)) {
+    error("Failed to lock code pages");
     exit(1);
   }
 }

@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <cuda_runtime.h>
 // includes, project
 #include <helper_string.h>
@@ -352,7 +353,13 @@ extern "C" void init(int sync_level) {
   // Follow convention and initialize CUDA/GPU
   // used here to invoke initialization of GPU locking
   cudaFree(0);
-  
+
+  // Pin code
+  if(!mlockall(MCL_CURRENT)) {
+    fprintf(stderr, "Failed to lock code pages.\n");
+    exit(EXIT_FAILURE);
+  }
+ 
   // Set the device context 
   cudaSetDevice(0);
 

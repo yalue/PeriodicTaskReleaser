@@ -28,6 +28,7 @@
 // System includes
 #include <stdio.h>
 #include <assert.h>
+#include <sys/mman.h>
 
 // CUDA runtime
 #include <cuda_runtime.h>
@@ -156,6 +157,12 @@ void init(int sync_level) {
   // used here to invoke initialization of GPU locking
   cudaFree(0);
 
+  // Pin code
+  if(!mlockall(MCL_CURRENT)) {
+    fprintf(stderr, "Failed to lock code pages.\n");
+    exit(EXIT_FAILURE);
+  }
+ 
   // Set the device context 
   cudaSetDevice(0);
 

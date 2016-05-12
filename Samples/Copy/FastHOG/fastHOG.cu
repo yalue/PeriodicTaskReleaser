@@ -6,6 +6,8 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
+
 #include "HOGEngine.h"
 #include "HOGEngineDevice.h"
 #include "HOGImage.h"
@@ -45,6 +47,11 @@ void init(int sync_level) {
   if (cudaFree(0) != cudaSuccess) {
     printf("Error running cudaFree(0).\n");
     exit(1);
+  }
+  // Pin code
+  if(!mlockall(MCL_CURRENT)) {
+    fprintf(stderr, "Failed to lock code pages.\n");
+    exit(EXIT_FAILURE);
   }
   if (cudaStreamCreate(&stream) != cudaSuccess) {
     printf("Unable to create cuda stream.\n");
