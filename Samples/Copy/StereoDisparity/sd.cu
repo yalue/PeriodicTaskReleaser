@@ -232,16 +232,8 @@ extern "C" void copyin(int unused) {
   // this call is asynchronous so only the lock of CE can be handled in the wrapper
   checkCudaErrors(cudaMemcpyAsync(d_img0,  h_img0, memSize, cudaMemcpyHostToDevice, stream));
 
-  // synchronize with the stream
-  // the wrapper for this function releases any lock held (CE here)
-  cudaStreamSynchronize(stream);
-
   // this call is asynchronous so only the lock of CE can be handled in the wrapper
   checkCudaErrors(cudaMemcpyAsync(d_img1,  h_img1, memSize, cudaMemcpyHostToDevice, stream));
-
-  // synchronize with the stream
-  // the wrapper for this function releases any lock held (CE here)
-  cudaStreamSynchronize(stream);
 
   // copy host memory that was set to zero to initialize device output
   // this call is asynchronous so only the lock of CE can be handled in the wrapper

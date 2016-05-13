@@ -235,10 +235,6 @@ void copyin(int numElements) {
     return;
   }
 
-  // synchronize with the stream
-  // the wrapper for this function releases any lock held (CE here)
-  cudaStreamSynchronize(stream);
-
   err = cudaMemcpyAsync(dB, hB, mem_size, cudaMemcpyHostToDevice, stream);
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to copy memory B from host to device (error code %s)!\n", cudaGetErrorString(err));

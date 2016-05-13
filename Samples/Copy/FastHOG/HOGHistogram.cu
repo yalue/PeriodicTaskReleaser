@@ -60,16 +60,12 @@ void CopyInHOGHistogram(void) {
   cutilSafeCall(cudaMemcpyToArrayAsync(gaussArray, 0, 0, hostWeights,
     sizeof(float) * initVars.cellSizeX * initVars.blockSizeX *
     initVars.cellSizeY * initVars.blockSizeY, cudaMemcpyHostToDevice, stream));
-  cutilSafeCall(cudaStreamSynchronize(stream));
   cutilSafeCall(cudaMemcpyToSymbolAsync(cenBound, initVars.h_cenBound, 3 *
     sizeof(float), 0, cudaMemcpyHostToDevice, stream));
-  cutilSafeCall(cudaStreamSynchronize(stream));
   cutilSafeCall(cudaMemcpyToSymbolAsync(halfBin, initVars.h_halfBin, 3 *
     sizeof(float), 0, cudaMemcpyHostToDevice, stream));
-  cutilSafeCall(cudaStreamSynchronize(stream));
   cutilSafeCall(cudaMemcpyToSymbolAsync(bandWidth, initVars.h_bandWidth, 3 *
     sizeof(float), 0, cudaMemcpyHostToDevice, stream));
-  cutilSafeCall(cudaStreamSynchronize(stream));
   cutilSafeCall(cudaMemcpyToSymbolAsync(tvbin, initVars.h_tvbin, 3 *
     sizeof(int), 0, cudaMemcpyHostToDevice, stream));
   cutilSafeCall(cudaStreamSynchronize(stream));

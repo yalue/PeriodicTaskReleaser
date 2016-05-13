@@ -50,7 +50,6 @@ void PadHostImage(uchar4* registeredImage, float4 *paddedRegisteredImage,
   hPaddedHeight = hHeightROI + hPaddingSizeY*2;
   cutilSafeCall(cudaMemsetAsync(paddedRegisteredImageU4, 0, sizeof(uchar4) *
     hPaddedWidth * hPaddedHeight, stream));
-  cutilSafeCall(cudaStreamSynchronize(stream));
   cutilSafeCall(cudaMemcpy2DAsync(paddedRegisteredImageU4 + hPaddingSizeX +
     hPaddingSizeY * hPaddedWidth, hPaddedWidth * sizeof(uchar4),
     registeredImage + minx + miny * hWidth, hWidth * sizeof(uchar4),

@@ -140,7 +140,6 @@ void copyin(int numElements) {
   random_float(h_filter, max_filter_size);
   checkCudaErrors(cudaMemcpyAsync(d_image, h_image, max_image_size,
     cudaMemcpyHostToDevice, stream));
-  checkCudaErrors(cudaStreamSynchronize(stream));
   checkCudaErrors(cudaMemcpyAsync(d_filter, h_filter, max_filter_size,
     cudaMemcpyHostToDevice, stream));
   cudaStreamSynchronize(stream);
