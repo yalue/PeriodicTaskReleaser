@@ -62,7 +62,7 @@ void init(int sync_level) {
   cudaFree(0);
 
   // pin code
-  if(!mlockall(MCL_CURRENT)) {
+  if(!mlockall(MCL_CURRENT | MCL_FUTURE)) {
     fprintf(stderr, "Failed to lock code pages.\n");
     exit(EXIT_FAILURE);
   }

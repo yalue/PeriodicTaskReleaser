@@ -51,7 +51,7 @@ void mallocCPU(int numElements) {
     printf("Failed allocating vector C.\n");
     exit(1);
   }
-  if (!mlockall(MCL_CURRENT)) {
+  if (!mlockall(MCL_CURRENT | MCL_FUTURE)) {
     error("Failed to lock code pages");
     exit(1);
   }

@@ -49,7 +49,7 @@ void init(int sync_level) {
     exit(1);
   }
   // Pin code
-  if(!mlockall(MCL_CURRENT)) {
+  if(!mlockall(MCL_CURRENT | MCL_FUTURE)) {
     fprintf(stderr, "Failed to lock code pages.\n");
     exit(EXIT_FAILURE);
   }
