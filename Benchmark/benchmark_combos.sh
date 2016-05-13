@@ -150,7 +150,7 @@ do
       i=$(($i+1))
       for k in `seq 0 $j`
       do
-        ./run_experiment.sh ./benchmark_mm_${copy} ${duration} ${size} ${out}/mm_${copy} &
+        ./run_experiment.sh ./benchmark_mm_${copy} ${duration} ${size} ${out}/mm_${copy}_${k} &
         pids[$i]=$!
         i=$(($i+1))
       done
