@@ -12,13 +12,13 @@ do
     mkdir -p $out 
     echo $out
     i=0
-    ./run_experiment.sh ./benchmark_sd_${copy} ${duration} ${size} ${out}/sd_${copy} &
+    ./run_experiment.sh ./benchmark_sd_${copy} ${duration} ${size} ${out}/sd_${copy} --randsleep &
     pids[$i]=$!
     i=$(($i+1))
-    ./run_experiment.sh ./benchmark_fasthog_${copy} ${duration} ${size} ${out}/fasthog_${copy} &
+    ./run_experiment.sh ./benchmark_fasthog_${copy} ${duration} ${size} ${out}/fasthog_${copy} --randsleep &
     pids[$i]=$!
     i=$(($i+1))
-    ./run_experiment.sh ./benchmark_convbench_${copy} ${duration} ${size} ${out}/convbench_${copy} &
+    ./run_experiment.sh ./benchmark_convbench_${copy} ${duration} ${size} ${out}/convbench_${copy} --randsleep &
     pids[$i]=$!
     i=$(($i+1))
     for k in `seq 1 $j`

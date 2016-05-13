@@ -11,7 +11,7 @@ do
     out="1gpu/${copy}/${sample}"
     mkdir -p $out 
     echo $out
-    ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy}
+    ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} --randsleep
   done
 done
 
@@ -30,10 +30,10 @@ do
       mkdir -p $out 
       echo $out
       i=0
-      ./run_experiment.sh ./benchmark_${fixed}_${copy} ${duration} ${size} ${out}/${fixed}_${copy} &
+      ./run_experiment.sh ./benchmark_${fixed}_${copy} ${duration} ${size} ${out}/${fixed}_${copy} --randsleep &
       pids[$i]=$!
       i=$(($i+1))
-      ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} &
+      ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} --randsleep &
       pids[$i]=$!
       i=$(($i+1))
       for pid in ${pids[@]}
@@ -65,13 +65,13 @@ do
         mkdir -p $out 
         echo $out
         i=0
-        ./run_experiment.sh ./benchmark_${fixed}_${copy} ${duration} ${size} ${out}/${fixed}_${copy} &
+        ./run_experiment.sh ./benchmark_${fixed}_${copy} ${duration} ${size} ${out}/${fixed}_${copy} --randsleep &
         pids[$i]=$!
         i=$(($i+1))
-        ./run_experiment.sh ./benchmark_${sample1}_${copy} ${duration} ${size} ${out}/${sample1}_${copy} &
+        ./run_experiment.sh ./benchmark_${sample1}_${copy} ${duration} ${size} ${out}/${sample1}_${copy} --randsleep &
         pids[$i]=$!
         i=$(($i+1))
-        ./run_experiment.sh ./benchmark_${sample2}_${copy} ${duration} ${size} ${out}/${sample2}_${copy} &
+        ./run_experiment.sh ./benchmark_${sample2}_${copy} ${duration} ${size} ${out}/${sample2}_${copy} --randsleep &
         pids[$i]=$!
         i=$(($i+1))
         for pid in ${pids[@]}
@@ -110,16 +110,16 @@ do
           mkdir -p $out 
           echo $out
           i=0
-          ./run_experiment.sh ./benchmark_${fixed}_${copy} ${duration} ${size} ${out}/${fixed}_${copy} &
+          ./run_experiment.sh ./benchmark_${fixed}_${copy} ${duration} ${size} ${out}/${fixed}_${copy} --randsleep &
           pids[$i]=$!
           i=$(($i+1))
-          ./run_experiment.sh ./benchmark_${sample1}_${copy} ${duration} ${size} ${out}/${sample1}_${copy} &
+          ./run_experiment.sh ./benchmark_${sample1}_${copy} ${duration} ${size} ${out}/${sample1}_${copy} --randsleep &
           pids[$i]=$!
           i=$(($i+1))
-          ./run_experiment.sh ./benchmark_${sample2}_${copy} ${duration} ${size} ${out}/${sample2}_${copy} &
+          ./run_experiment.sh ./benchmark_${sample2}_${copy} ${duration} ${size} ${out}/${sample2}_${copy} --randsleep &
           pids[$i]=$!
           i=$(($i+1))
-          ./run_experiment.sh ./benchmark_${sample3}_${copy} ${duration} ${size} ${out}/${sample3}_${copy} &
+          ./run_experiment.sh ./benchmark_${sample3}_${copy} ${duration} ${size} ${out}/${sample3}_${copy} --randsleep &
           pids[$i]=$!
           i=$(($i+1))
           for pid in ${pids[@]}
@@ -145,12 +145,12 @@ do
       mkdir -p $out 
       echo $out
       i=0
-      ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} &
+      ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} --randsleep &
       pids[$i]=$!
       i=$(($i+1))
       for k in `seq 1 $j`
       do
-        ./run_experiment.sh ./benchmark_mm_${copy} ${duration} ${size} ${out}/mm_${copy}_${k} &
+        ./run_experiment.sh ./benchmark_mm_${copy} ${duration} ${size} ${out}/mm_${copy}_${k} --randsleep &
         pids[$i]=$!
         i=$(($i+1))
       done

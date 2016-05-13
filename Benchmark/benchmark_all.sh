@@ -18,9 +18,9 @@ mkdir -p $out
 echo $out
 for sample in va mm
 do
-  ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_1 &
+  ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_1 --randsleep &
   pids[1]=$!
-  ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_2 &
+  ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_2 --randsleep &
   pids[2]=$!
   for pid in ${pids[@]}
   do
@@ -35,10 +35,10 @@ echo $out
 i=0
 for sample in va mm
 do
-  ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_1 &
+  ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_1 --randsleep &
   pids[$i]=$!
   i=$(($i+1))
-  ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_2 &
+  ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_2 --randsleep &
   pids[$i]=$!
   i=$(($i+1))
 done
@@ -68,7 +68,7 @@ do
   i=0
   for sample in sd sf fasthog convbench 
   do
-    ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} &
+    ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} --randsleep &
     pids[$i]=$!
     i=$(($i+1))
   done
@@ -87,13 +87,13 @@ do
   i=0
   for sample in sd sf fasthog convbench 
   do
-    ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} &
+    ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} --randsleep &
     pids[$i]=$!
     i=$(($i+1))
   done
   for sample in va mm
   do
-    ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_${copy} &
+    ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_${copy} --randsleep &
     pids[$i]=$!
     i=$(($i+1))
   done
@@ -112,16 +112,16 @@ do
   i=0
   for sample in sd sf fasthog convbench 
   do
-    ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} &
+    ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} --randsleep &
     pids[$i]=$!
     i=$(($i+1))
   done
   for sample in va mm
   do
-    ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_${copy}_1 &
+    ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_${copy}_1 --randsleep &
     pids[$i]=$!
     i=$(($i+1))
-    ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_${copy}_2 &
+    ./run_experiment.sh ./benchmark_${sample}_cpu ${duration} ${size} ${out}/${sample}_${copy}_2 --randsleep &
     pids[$i]=$!
     i=$(($i+1))
   done
