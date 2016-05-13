@@ -110,18 +110,11 @@ int main(int argc, char** argv) {
 
   init(arguments.sync);
   mallocCPU(arguments.data_size);
+  mallocGPU(arguments.data_size);
 
   for (i = 0; elapsed_sec(&experiment_start, &end) < arguments.experiment_duration && i < arguments.iteration_count; ++i) {
     CURRENT_TIME(&start);
     fprintf(stdout, "%s, %s, %d, start\n", format_time(&start),
-        argv[0], getpid());
-
-    CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %s, %d, cudaMalloc, call\n", format_time(&tmp),
-        argv[0], getpid());
-    mallocGPU(arguments.data_size);
-    CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %s, %d, cudaMalloc, return\n", format_time(&tmp),
         argv[0], getpid());
 
     CURRENT_TIME(&tmp);
@@ -148,14 +141,6 @@ int main(int argc, char** argv) {
     fprintf(stdout, "%s, %s, %d, cudaMemcpy, return, deviceToHost\n",
         format_time(&tmp), argv[0], getpid());
 
-    CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %s, %d, cudaFree, call\n", format_time(&tmp),
-        argv[0], getpid());
-    freeGPU();
-    CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %s, %d, cudaFree, return\n", format_time(&tmp),
-        argv[0], getpid());
- 
     CURRENT_TIME(&end);
     fprintf(stdout, "%s, %s, %d, end\n", format_time(&end),
         argv[0], getpid());
@@ -166,6 +151,7 @@ int main(int argc, char** argv) {
     delay.tv_nsec = arguments.randsleep * (rand() % FIFTEEN_MS_IN_NS);
     nanosleep(&delay, NULL);
   }
+  freeGPU();
   freeCPU();
   finish();
   exit(EXIT_SUCCESS);
