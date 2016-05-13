@@ -148,7 +148,7 @@ do
       ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} &
       pids[$i]=$!
       i=$(($i+1))
-      for k in `seq 0 $j`
+      for k in `seq 1 $j`
       do
         ./run_experiment.sh ./benchmark_mm_${copy} ${duration} ${size} ${out}/mm_${copy}_${k} &
         pids[$i]=$!
