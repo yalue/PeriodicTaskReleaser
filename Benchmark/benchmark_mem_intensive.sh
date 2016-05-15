@@ -23,7 +23,7 @@ do
     i=$(($i+1))
     for k in `seq 1 $j`
     do
-      ./run_experiment.sh ./benchmark_va_cpu ${duration} ${size} ${out}/va_cpu_${k} &
+      ./run_experiment_no_log.sh ./benchmark_va_cpu ${duration} ${size} ${out}/va_cpu_${k} &
       pids[$i]=$!
       i=$(($i+1))
     done

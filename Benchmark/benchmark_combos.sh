@@ -8,10 +8,10 @@ for copy in c zc
 do
   for sample in sd fasthog convbench 
   do
-    out="1gpu/${copy}/${sample}"
+    out="${copy}/1/1_${sample}"
     mkdir -p $out 
     echo $out
-    ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} --randsleep
+    ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample} --randsleep
   done
 done
 
@@ -24,18 +24,27 @@ do
     do
       if [ "$fixed" = "$sample" ]
       then
-        continue
+        out="${copy}/2/2_${fixed}"
+        mkdir -p $out 
+        echo $out
+        ./run_experiment.sh ./benchmark_${fixed}_${copy} ${duration} ${size} ${out}/${fixed} --randsleep
+        pids[$i]=$!
+        i=$(($i+1))
+        ./run_experiment_no_log.sh ./benchmark_${fixed}_${copy} ${duration} ${size} ignore --randsleep
+        pids[$i]=$!
+        i=$(($i+1))
+      else
+        out="${copy}/2/${fixed}/${sample1}"
+        mkdir -p $out 
+        echo $out
+        i=0
+        ./run_experiment.sh ./benchmark_${fixed}_${copy} ${duration} ${size} ${out}/${fixed} --randsleep &
+        pids[$i]=$!
+        i=$(($i+1))
+        ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample} --randsleep &
+        pids[$i]=$!
+        i=$(($i+1))
       fi
-      out="2gpu/${copy}/${fixed}/${sample1}"
-      mkdir -p $out 
-      echo $out
-      i=0
-      ./run_experiment.sh ./benchmark_${fixed}_${copy} ${duration} ${size} ${out}/${fixed}_${copy} --randsleep &
-      pids[$i]=$!
-      i=$(($i+1))
-      ./run_experiment.sh ./benchmark_${sample}_${copy} ${duration} ${size} ${out}/${sample}_${copy} --randsleep &
-      pids[$i]=$!
-      i=$(($i+1))
       for pid in ${pids[@]}
       do
         wait $pid
@@ -51,17 +60,13 @@ do
   do
     for sample1 in sd fasthog convbench 
     do
-      if [ "$fixed" = "$sample1" ]
-      then
-        continue
-      fi
       for sample2 in sd fasthog convbench
       do
         if [[ ("$fixed" = "$sample2") || ("$sample1" = "$sample2") ]]
         then
           continue
         fi
-        out="3gpu/${copy}/${fixed}/${sample1}/${sample2}"
+        out="${copy}/3/${fixed}"
         mkdir -p $out 
         echo $out
         i=0
