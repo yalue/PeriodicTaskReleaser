@@ -35,8 +35,7 @@ do
       fi
       pids[$j]=$!
       j=$(($j+1))
-
-      for i in $(seq 2 $num)
+      for ((i=2; i <= $num; i++))
       do
         if [[ "$tok" == "va" ]]
         then
