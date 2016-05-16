@@ -15,7 +15,6 @@ size=$3
 outfile=$4 # ignored
 randsleep=$5
 
-echo $program
 ${program} $randsleep --duration ${duration} --size ${size} &>/dev/null &
 pid=$!
 wait ${pid}

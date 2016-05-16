@@ -15,7 +15,6 @@ size=$3
 outfile=$4
 randsleep=$5
 
-echo $program
 vmstat -s > ${outfile}_vmstat_pre.txt
 stdbuf -oL ${program} $randsleep --duration ${duration} --size ${size} > ${outfile}.csv &
 pid=$!
