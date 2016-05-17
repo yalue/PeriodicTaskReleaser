@@ -8,12 +8,17 @@
 # Argument 3: input size.
 # Argument 4: output file name.
 # Argument 5: random sleep flag (--randsleep).
+# Argument 6: CPU core to assign (--randsleep).
 
 program=$1
 duration=$2
 size=$3
 outfile=$4
 randsleep=$5
+if [ -n "$6" ]
+then
+  taskset -c -p $6 $$
+fi
 
 vmstat -s > ${outfile}_vmstat_pre.txt
 stdbuf -oL ${program} $randsleep --duration ${duration} --size ${size} > ${outfile}.csv &

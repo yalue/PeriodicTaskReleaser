@@ -1,8 +1,10 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
 #include <argp.h>
 #include <stdint.h>
+#include <sched.h>
 #include <unistd.h>
 
 #include "gpusync.h"
@@ -13,6 +15,7 @@
 #define DEFAULT_ITERATION_COUNT 2147483647 // 2^31 - 1
 #define DEFAULT_SYNC 2
 #define DEFAULT_RAND_SLEEP 0
+#define DEFAULT_CPU_CORE (-1)
 
 #define FIFTEEN_MS_IN_NS 15000000 // 15 million
 
@@ -27,6 +30,7 @@ static struct argp_option options[] = {
   {0, 0, 0, 0, "Experiment configuration parameters:"},
   {"size", 's', "data_size", 0, "Specifies the size of input data to the task. Some tasks may disregard this value."},
   {"sync", 'y', "{0|1}", 0, "Specifies how the CPU should synchronize with the GPU kernel. {0: spin, 1: yield, default: block}."},
+  {"cpu", 'c', "0-3", 0, "Specifies the core to set CPU affinity to. Defaults to -1 (unset)."},
   {"randsleep", 'r', 0, OPTION_ARG_OPTIONAL, "Specifies that the program should sleep for a random amount of time between 0-15ms after each iteration."},
   {0, 0, 0, 0, "Experiment duration specifiers. If both are used, whichever limit is reached first will terminate the experiment."},
   {"iterations", 'n', "iteration_count", 0, "Specifies the maximum number of iterations of the benchmark program. Defaults to infinity."},
@@ -41,7 +45,17 @@ struct arguments {
   int operation;
   int sync;
   int randsleep;
+  int cpu_core;
 };
+
+// Sets this process' CPU affinity to the given core. Returns 0 on failure and
+// nonzero on success.
+static int SetCPUAffinity(int core) {
+  cpu_set_t cpu_set;
+  CPU_ZERO(&cpu_set);
+  CPU_SET(core, &cpu_set);
+  return sched_setaffinity(0, sizeof(cpu_set), &cpu_set) == 0;
+}
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   struct arguments *arguments = state->input;
@@ -63,6 +77,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         }
         arguments->iteration_count = iterations;
       }
+      break;
+    case 'c':
+      arguments->cpu_core = atoi(arg);
       break;
     case 'r':
       arguments->randsleep = 1;
@@ -89,20 +106,26 @@ static struct argp argp = {options, parse_opt, args_doc, doc};
 
 int main(int argc, char** argv) {
   struct arguments arguments;
+  struct timespec start, end, experiment_start, tmp;
+  int i;
   // Default values
   arguments.data_size = DEFAULT_DATA_SIZE;
   arguments.experiment_duration = ((uint64_t) DEFAULT_EXPERIMENT_DURATION);
   arguments.iteration_count = (uint64_t) DEFAULT_ITERATION_COUNT;
   arguments.sync = DEFAULT_SYNC;
   arguments.randsleep = DEFAULT_RAND_SLEEP;
+  arguments.cpu_core = DEFAULT_CPU_CORE;
   // Parse args
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
-
-  struct timespec start, end, experiment_start, tmp;
-  int i;
+  if (arguments.cpu_core >= 0) {
+    if (!SetCPUAffinity(arguments.cpu_core)) {
+      fprintf(stdout, "Can't set affinity to CPU %d\n", arguments.cpu_core);
+      return 1;
+    }
+  }
 
   // print output header
-  fprintf(stdout, "Timestamp, program, PID, function, call/ret, arg\n");
+  fprintf(stdout, "Timestamp, CPU core, PID, function, call/ret, arg\n");
   CURRENT_TIME(&experiment_start);
   // initialize end time to experiment start time.
   // this copies the primitive fields tv_sec and tv_nsec.
@@ -114,37 +137,37 @@ int main(int argc, char** argv) {
 
   for (i = 0; elapsed_sec(&experiment_start, &end) < arguments.experiment_duration && i < arguments.iteration_count; ++i) {
     CURRENT_TIME(&start);
-    fprintf(stdout, "%s, %s, %d, start\n", format_time(&start),
-        argv[0], getpid());
+    fprintf(stdout, "%s, %d, %d, start\n", format_time(&start), sched_getcpu(),
+        getpid());
 
     CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %s, %d, cudaMemcpy, call, hostToDevice\n",
-        format_time(&tmp), argv[0], getpid());
+    fprintf(stdout, "%s, %d, %d, cudaMemcpy, call, hostToDevice\n",
+        format_time(&tmp), sched_getcpu(), getpid());
     copyin(arguments.data_size);
     CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %s, %d, cudaMemcpy, return, hostToDevice\n",
-        format_time(&tmp), argv[0], getpid());
+    fprintf(stdout, "%s, %d, %d, cudaMemcpy, return, hostToDevice\n",
+        format_time(&tmp), sched_getcpu(), getpid());
 
     CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %s, %d, cudaLaunch, call\n", format_time(&tmp),
-        argv[0], getpid());
+    fprintf(stdout, "%s, %d, %d, cudaLaunch, call\n", format_time(&tmp),
+        sched_getcpu(), getpid());
     exec(arguments.data_size);
     CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %s, %d, cudaLaunch, return\n", format_time(&tmp),
-        argv[0], getpid());
+    fprintf(stdout, "%s, %d, %d, cudaLaunch, return\n", format_time(&tmp),
+        sched_getcpu(), getpid());
 
     CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %s, %d, cudaMemcpy, call, deviceToHost\n",
-        format_time(&tmp), argv[0], getpid());
+    fprintf(stdout, "%s, %d, %d, cudaMemcpy, call, deviceToHost\n",
+        format_time(&tmp), sched_getcpu(), getpid());
     copyout();
     CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %s, %d, cudaMemcpy, return, deviceToHost\n",
-        format_time(&tmp), argv[0], getpid());
+    fprintf(stdout, "%s, %d, %d, cudaMemcpy, return, deviceToHost\n",
+        format_time(&tmp), sched_getcpu(), getpid());
 
     CURRENT_TIME(&end);
-    fprintf(stdout, "%s, %s, %d, end\n", format_time(&end),
-        argv[0], getpid());
-    
+    fprintf(stdout, "%s, %d, %d, end\n", format_time(&end),
+        sched_getcpu(), getpid());
+
     // Sleep for small amount of time to emulate periodicity.
     struct timespec delay;
     delay.tv_sec = 0;

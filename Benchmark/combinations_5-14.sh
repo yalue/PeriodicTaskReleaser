@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Configuration
-duration=$((12*60)) # 12 minutes
+#duration=$((10*60)) # 10 minutes
+duration=60
 size=$((2^22))
 randsleep="--randsleep"
 copy="c"
