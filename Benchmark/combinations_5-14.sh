@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # Configuration
-#duration=$((10*60)) # 10 minutes
-duration=60
+duration=$((15*60)) # 15 minutes
 size=$((2^22))
 randsleep="--randsleep"
 copy="c"
@@ -75,13 +74,3 @@ echo "VA_CPU/
 2_va_1_fasthog/
 3_va_1_fasthog/" | ./run_benchmark_parse.sh $args
 
-echo "VA_CPU_GPU/
-1_va_1_sd/
-1_va_2_sd/
-1_va_3_sd/
-1_va_1_convbench/
-1_va_2_convbench/
-1_va_3_convbench/
-1_va_1_fasthog/
-1_va_2_fasthog/
-1_va_3_fasthog/" | ./run_benchmark_parse.sh $args
