@@ -13,6 +13,6 @@ while kill -0 $pid 2>/dev/null;
 do
   echo -n "$(date +%s.%N), ${pname}, ${pid}, " >> $outfile
   stdbuf -oL ps --no-headers -p $pid -o %cpu,rss | sed 's/^ *//g' | tr -s " " | cut --delimiter=" " --output-delimiter="," --fields=1,2 >> $outfile
-  sleep 0.5
+  sleep 2.0
 done
 
