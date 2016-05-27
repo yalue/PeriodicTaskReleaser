@@ -125,6 +125,8 @@ void mallocCPU(int numElements) {
   checkCudaErrors(cudaMallocHost(&h_image, max_image_size * sizeof(float)));
   checkCudaErrors(cudaMallocHost(&h_filter, max_filter_size * sizeof(float)));
   checkCudaErrors(cudaMallocHost(&h_result, max_result_size * sizeof(float)));
+  random_float(h_image, max_image_size);
+  random_float(h_filter, max_filter_size);
 }
 
 void mallocGPU(int numElements) {
@@ -133,8 +135,6 @@ void mallocGPU(int numElements) {
   checkCudaErrors(cudaMalloc(&d_image_col, max_image_col_size *
     sizeof(float)));
   checkCudaErrors(cudaMalloc(&d_result, max_result_size * sizeof(float)));
-  random_float(h_image, max_image_size);
-  random_float(h_filter, max_filter_size);
 }
 
 void copyin(int numElements) {
