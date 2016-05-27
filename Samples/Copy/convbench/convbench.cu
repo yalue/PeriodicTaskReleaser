@@ -133,15 +133,15 @@ void mallocGPU(int numElements) {
   checkCudaErrors(cudaMalloc(&d_image_col, max_image_col_size *
     sizeof(float)));
   checkCudaErrors(cudaMalloc(&d_result, max_result_size * sizeof(float)));
+  random_float(h_image, max_image_size);
+  random_float(h_filter, max_filter_size);
 }
 
 void copyin(int numElements) {
-  random_float(h_image, max_image_size);
-  random_float(h_filter, max_filter_size);
-  checkCudaErrors(cudaMemcpyAsync(d_image, h_image, max_image_size,
-    cudaMemcpyHostToDevice, stream));
-  checkCudaErrors(cudaMemcpyAsync(d_filter, h_filter, max_filter_size,
-    cudaMemcpyHostToDevice, stream));
+  checkCudaErrors(cudaMemcpyAsync(d_image, h_image, max_image_size *
+    sizeof(float), cudaMemcpyHostToDevice, stream));
+  checkCudaErrors(cudaMemcpyAsync(d_filter, h_filter, max_filter_size *
+    sizeof(float), cudaMemcpyHostToDevice, stream));
   cudaStreamSynchronize(stream);
 }
 
