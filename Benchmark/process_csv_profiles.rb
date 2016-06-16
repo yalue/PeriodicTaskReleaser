@@ -4,6 +4,7 @@
 # Specifically, this looks for any instances of kernel co-scheduling. For each
 # log, it will print the percentage of kernels that had *some* overlap with
 # another log.
+require 'json'
 
 # Returns a dict mapping file name -> array of kernel runs. The array of kernel
 # runs consists of a list of times in the following order:
@@ -28,8 +29,8 @@ def load_trace_files(directory)
       next if cols.size < 3
       next if cols[0] =~ /"/
       name = cols[-1].gsub(/"/, "")
-      # We'll ignore memcpy times for now
-      #next if name =~ /\[CUDA/
+      # We'll ignore memcpy and memset times for now
+      next if name =~ /\[CUDA/
       start_time = cols[0].to_f
       duration = cols[1].to_f
       kernel_runs << [start_time, duration, name]
@@ -115,6 +116,12 @@ def get_kernel_overlap_percentage(all_data, key)
   to_return
 end
 
+# Takes an array containing start time and duration, returns a string of the
+# interval.
+def interval_to_string(a)
+  "%.03f-%.03f" % [a[0], a[0] + a[1]]
+end
+
 # Takes 2 arrays of intervals and returns an array of intervals where both were
 # overlapping.
 def get_overlaps(a, b)
@@ -139,7 +146,11 @@ def get_overlaps(a, b)
       overlap_start = a_starts_later ? a_val[0] : b_val[0]
       overlap_end = a_end < b_end ? a_end : b_end
       kernel_names = a_val[2] + " + " + b_val[2]
-      to_return << [overlap_start, overlap_end - overlap_start, kernel_names]
+      overlap_interval = [overlap_start, overlap_end - overlap_start,
+        kernel_names]
+      puts "Overlap of (%s) and (%s) = (%s)" % [interval_to_string(a_val),
+        interval_to_string(b_val), interval_to_string(overlap_interval)]
+      to_return << overlap_interval
       # Decide whether to advance a_index or b_index
       if a_index >= a.size - 1
         # Don't advance a_index if we're at the last one already.
@@ -237,14 +248,23 @@ def print_specific_overlap_data(directory)
       puts "  Instances of overlap between #{file_names}:"
       combined_data = combine_overlap_data(data)
       combined_data.each_with_index do |interval, i|
-        if i > 20
-          puts "    <More than 20 results. Omitting remainder.>"
-          break
-        end
+        #if i > 20
+        #  puts "    <More than 20 results. Omitting remainder.>"
+        #  break
+        #end
         puts "    #{interval[0]}: #{interval[1]}ms total overlap"
       end
     end
   end
+end
+
+def dump_trace_json(directory)
+  data = load_trace_files(directory)
+  to_print = "var all_data = "
+  to_print += JSON.pretty_generate(data)
+  to_print = to_print.chomp
+  to_print += ";"
+  puts to_print
 end
 
 if ARGV.size < 1
@@ -253,4 +273,5 @@ if ARGV.size < 1
 end
 directory = ARGV[0]
 
-print_specific_overlap_data(directory)
+#print_specific_overlap_data(directory)
+dump_trace_json(directory)

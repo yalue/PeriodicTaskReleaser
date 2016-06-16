@@ -34,15 +34,17 @@
  */
 
 // includes, system
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <sched.h>
 #include <errno.h>
+#include <math.h>
+#include <sched.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
 
 // includes, kernels
 // For the CUDA runtime routines (prefixed with "cuda")
@@ -63,14 +65,16 @@
  cudaStream_t stream;
 
 // Host Memory
- unsigned int *h_odata;
- unsigned char *h_img0;
- unsigned char *h_img1;
+unsigned int *h_odata;
+unsigned char *h_img0;
+unsigned char *h_img1;
+uint64_t h_gpu_clocks[2];
 
 // Device memory
- unsigned int *d_odata;
- unsigned int *d_img0;
- unsigned int *d_img1;
+unsigned int *d_odata;
+unsigned int *d_img0;
+unsigned int *d_img1;
+uint64_t *d_gpu_clocks;
 
 // Kernel execution parameters
 unsigned int w, h;
@@ -128,7 +132,25 @@ inline bool loadPPM4ub(const char *file, unsigned char **data,
   }
 }
 
-
+// Prints the current wall clock time and approximate GPU clocks for that time.
+static void PrintCurrentGPUClocks() {
+  struct timespec ts;
+  uint64_t host_gpu_clocks;
+  uint64_t *device_gpu_clocks;
+  checkCudaErrors(cudaMalloc(&device_gpu_clocks, sizeof(uint64_t)));
+  getClocksKernel<<<1, 1>>>(device_gpu_clocks);
+  cudaStreamSynchronize(stream);
+  if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+    printf("Failed getting time.\n");
+    exit(1);
+  }
+  getLastCudaError("Get clocks execution failed");
+  checkCudaErrors(cudaMemcpy(&host_gpu_clocks, device_gpu_clocks,
+    sizeof(uint64_t), cudaMemcpyDeviceToHost));
+  cudaFree(device_gpu_clocks);
+  printf("Time %ld.%09ld: device clocks = %llu\n", (long) ts.tv_sec,
+    (long) ts.tv_nsec, (long long unsigned int) host_gpu_clocks);
+}
 
 extern "C" void init(int sync_level) {
   /*
@@ -161,14 +183,12 @@ extern "C" void init(int sync_level) {
     fprintf(stderr, "Failed to lock code pages.\n");
     exit(EXIT_FAILURE);
   }
- 
   // Set the device context 
   cudaSetDevice(0);
- 
   // create a user defined stream
   cudaStreamCreate(&stream);
+  PrintCurrentGPUClocks();
 }
-
 
 extern "C" void mallocCPU(int numElements) {
   // Load image data
@@ -212,12 +232,12 @@ extern "C" void mallocCPU(int numElements) {
   tex2Dright.normalized     = false;
 }
 
-
 extern "C" void mallocGPU(int unused) {
   // allocate device memory for inputs and result
   checkCudaErrors(cudaMalloc((void **) &d_odata, memSize));
   checkCudaErrors(cudaMalloc((void **) &d_img0, memSize));
   checkCudaErrors(cudaMalloc((void **) &d_img1, memSize));
+  checkCudaErrors(cudaMalloc(&d_gpu_clocks, 2 * sizeof(uint64_t)));
 
   checkCudaErrors(cudaBindTexture2D(&offset, tex2Dleft, d_img0, ca_desc0, w, h, w*4));
   assert(offset == 0);
@@ -228,9 +248,13 @@ extern "C" void mallocGPU(int unused) {
 }
 
 extern "C" void copyin(int unused) {
+  h_gpu_clocks[0] = (uint64_t) -1;
+
   // copy host memory with images to device
   // this call is asynchronous so only the lock of CE can be handled in the wrapper
   checkCudaErrors(cudaMemcpyAsync(d_img0,  h_img0, memSize, cudaMemcpyHostToDevice, stream));
+  checkCudaErrors(cudaMemcpyAsync(d_gpu_clocks, h_gpu_clocks, 2 *
+    sizeof(uint64_t), cudaMemcpyHostToDevice, stream));
 
   // this call is asynchronous so only the lock of CE can be handled in the wrapper
   checkCudaErrors(cudaMemcpyAsync(d_img1,  h_img1, memSize, cudaMemcpyHostToDevice, stream));
@@ -244,10 +268,18 @@ extern "C" void copyin(int unused) {
   cudaStreamSynchronize(stream);
 }
 
+static void PrintStartAndEndGPUClocks() {
+  checkCudaErrors(cudaMemcpy(h_gpu_clocks, d_gpu_clocks, 2 * sizeof(uint64_t),
+    cudaMemcpyDeviceToHost));
+  printf("Kernel GPU clocks: start = %llu, end = %llu\n",
+    (long long unsigned int) h_gpu_clocks[0],
+    (long long unsigned int) h_gpu_clocks[1]);
+}
+
 extern "C" void exec(int unused) {
   // launch the stereoDisparity kernel
   // lock of EE is handled in wrapper for cudaLaunch()
-  stereoDisparityKernel<<<numBlocks, numThreads, 0, stream>>>(d_img0, d_img1, d_odata, w, h, minDisp, maxDisp);
+  stereoDisparityKernel<<<numBlocks, numThreads, 0, stream>>>(d_img0, d_img1, d_odata, w, h, minDisp, maxDisp, d_gpu_clocks);
 
   // synchronize with the stream after kernel execution
   // the wrapper for this function releases any lock held (EE here)
@@ -255,6 +287,7 @@ extern "C" void exec(int unused) {
 
   // Check to make sure the kernel didn't fail
   getLastCudaError("Kernel execution failed");
+  PrintStartAndEndGPUClocks();
 }
 
 extern "C" void copyout() {

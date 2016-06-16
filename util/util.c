@@ -26,7 +26,7 @@ long elapsed_sec(struct timespec *t1, struct timespec *t2) {
 }
 
 char* format_time(struct timespec *t) {
-  static char time_buf[22];
+  static char time_buf[23];
   snprintf(time_buf, 22, "%ld.%09ld", (long) t->tv_sec, (long) t->tv_nsec);
   return time_buf;
 }

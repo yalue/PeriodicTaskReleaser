@@ -10,7 +10,7 @@
  */
 
 /* Simple kernel computes a Stereo Disparity using CUDA SIMD SAD intrinsics. */
-
+#include <stdint.h>
 #ifndef _STEREODISPARITY_KERNEL_H_
 #define _STEREODISPARITY_KERNEL_H_
 
@@ -52,6 +52,11 @@ __device__ unsigned int __usad4(unsigned int A, unsigned int B, unsigned int C=0
     return result;
 }
 
+// Sets the current_clocks argument to the current number of clocks on the GPU.
+__global__ void getClocksKernel(uint64_t *current_clocks) {
+    *current_clocks = clock64();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 //! Simple stereo disparity kernel to test atomic instructions
 //! Algorithm Explanation:
@@ -68,13 +73,20 @@ __device__ unsigned int __usad4(unsigned int A, unsigned int B, unsigned int C=0
 //! @param h image height in pixels
 //! @param minDisparity leftmost search range
 //! @param maxDisparity rightmost search range
+//! @param time_array contains 2 uint64_t values. The first will be set to the
+//   number of clock cycles when this kernel is first executed and the second
+//   will be set to the number of GPU clock cycles just before it returns.
 ////////////////////////////////////////////////////////////////////////////////
 __global__ void
 stereoDisparityKernel(unsigned int *g_img0, unsigned int *g_img1,
                       unsigned int *g_odata,
                       int w, int h,
-                      int minDisparity, int maxDisparity)
+                      int minDisparity, int maxDisparity,
+                      uint64_t *time_array)
 {
+    if (clock64() < time_array[0]) {
+        time_array[0] = clock64();
+    }
     // access thread id
     const int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     const int tidy = blockDim.y * blockIdx.y + threadIdx.y;
@@ -177,6 +189,7 @@ stereoDisparityKernel(unsigned int *g_img0, unsigned int *g_img1,
     {
         g_odata[tidy*w + tidx] = bestDisparity;
     }
+    time_array[1] = clock64();
 }
 
 void cpu_gold_stereo(unsigned int *img0, unsigned int *img1, unsigned int *odata,
