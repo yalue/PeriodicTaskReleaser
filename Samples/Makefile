@@ -1,6 +1,7 @@
 INC = -I/home/ubuntu/NVIDIA_CUDA-6.5_Samples/common/inc -I.
 INC += -I/home/ubuntu/samples/NVIDIA_CUDA-6.5_Samples/common/inc
 INC += -I/home/ubuntu/NVIDIA_CUDA_7.0/common/inc
+INC += -I/playpen/cuda_70_samples/common/inc
 
 all: mem_c.o va_c.o mm_c.o mem_zc.o va_zc.o mm_zc.o sf_c.o sf_zc.o sd_c.o sd_zc.o \
 	fasthog_c.a fasthog_zc.a convbench_c.a convbench_zc.a va_cpu.o mm_cpu.o
