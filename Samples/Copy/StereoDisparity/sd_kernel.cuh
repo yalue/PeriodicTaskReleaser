@@ -23,9 +23,9 @@
 // (see convolution CUDA Sample for example)
 #define STEPS 3
 
+// TODO: Figure out a way to allocate these non-globally!
 texture<unsigned int, cudaTextureType2D, cudaReadModeElementType> tex2Dleft;
 texture<unsigned int, cudaTextureType2D, cudaReadModeElementType> tex2Dright;
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // This function applies the video instrinsic operations to compute a
@@ -69,12 +69,9 @@ __device__ unsigned int __usad4(unsigned int A, unsigned int B, unsigned int C=0
 //! @param minDisparity leftmost search range
 //! @param maxDisparity rightmost search range
 ////////////////////////////////////////////////////////////////////////////////
-__global__ void
-stereoDisparityKernel(unsigned int *g_img0, unsigned int *g_img1,
-                      unsigned int *g_odata,
-                      int w, int h,
-                      int minDisparity, int maxDisparity)
-{
+__global__ void stereoDisparityKernel(unsigned int *g_img0,
+  unsigned int *g_img1, unsigned int *g_odata, int w, int h, int minDisparity,
+  int maxDisparity) {
     // access thread id
     const int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     const int tidy = blockDim.y * blockIdx.y + threadIdx.y;
@@ -197,7 +194,7 @@ void cpu_gold_stereo(unsigned int *img0, unsigned int *img1, unsigned int *odata
                 {
                     for (int j=-RAD; j<=RAD; j++)
                     {
-                        //border clamping
+                        //border clampin 
                         int yy,xx,xxd;
                         yy = y+i;
 

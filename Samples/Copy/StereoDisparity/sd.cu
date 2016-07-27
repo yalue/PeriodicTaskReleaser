@@ -50,37 +50,38 @@ extern "C" {
 }
 #include "sd_kernel.cuh"
 
-// Stream for the thread's GPU Operations
-cudaStream_t stream;
-
-// Host Memory
-unsigned int *h_odata;
-unsigned char *h_img0;
-unsigned char *h_img1;
-
-// Device memory
-unsigned int *d_odata;
-unsigned int *d_img0;
-unsigned int *d_img1;
-
-// Kernel execution parameters
-unsigned int w, h;
-size_t offset;
-dim3 numThreads;
-dim3 numBlocks;
-unsigned int numData;
-unsigned int memSize;
-cudaChannelFormatDesc ca_desc0;
-cudaChannelFormatDesc ca_desc1;
-
-// Search parameters
-int minDisp = -16;
-int maxDisp = 0;
-
 // Relative path to images
-char fname0[] = "../Samples/Copy/StereoDisparity/data/stereo.im0.640x533.ppm";
-char fname1[] = "../Samples/Copy/StereoDisparity/data/stereo.im1.640x533.ppm";
+static const char fname0[] = "../Samples/Copy/StereoDisparity/data/stereo.im0.640x533.ppm";
+static const char fname1[] = "../Samples/Copy/StereoDisparity/data/stereo.im1.640x533.ppm";
 
+// Holds per-thread state for this algorithm.
+typedef struct {
+  cudaStream_t stream;
+  // Host Memory
+  unsigned int *h_odata;
+  unsigned char *h_img0;
+  unsigned char *h_img1;
+  // Device memory
+  unsigned int *d_odata;
+  unsigned int *d_img0;
+  unsigned int *d_img1;
+  // Kernel execution parameters
+  unsigned int w, h;
+  size_t offset;
+  dim3 numThreads;
+  dim3 numBlocks;
+  unsigned int numData;
+  unsigned int memSize;
+  cudaChannelFormatDesc ca_desc0;
+  cudaChannelFormatDesc ca_desc1;
+  // Search parameters
+  int minDisp;
+  int maxDisp;
+} ThreadContext;
+
+// Used for work-in-progress migration of this task to one that doesn't rely on
+// global state.
+ThreadContext *g;
 
 int iDivUp(int a, int b) {
   return ((a % b) != 0) ? (a / b + 1) : (a / b);
@@ -116,19 +117,26 @@ inline bool loadPPM4ub(const char *file, unsigned char **data,
 
 extern "C" void init(int sync_level) {
    switch (sync_level) {
-    case 0:
-      cudaSetDeviceFlags(cudaDeviceScheduleSpin);
-      break;
-    case 1:
-      cudaSetDeviceFlags(cudaDeviceScheduleYield);
-      break;
-    case 2:
-      cudaSetDeviceFlags(cudaDeviceBlockingSync);
-      break;
-    default:
-      fprintf(stderr, "Unknown sync level: %d\n", sync_level);
-      break;
+   case 0:
+     cudaSetDeviceFlags(cudaDeviceScheduleSpin);
+     break;
+   case 1:
+     cudaSetDeviceFlags(cudaDeviceScheduleYield);
+     break;
+   case 2:
+     cudaSetDeviceFlags(cudaDeviceBlockingSync);
+     break;
+   default:
+     fprintf(stderr, "Unknown sync level: %d\n", sync_level);
+     break;
   }
+  g = (ThreadContext*) malloc(sizeof(ThreadContext));
+  if (!g) {
+    printf("Failed to allocate Thread Context.\n");
+    exit(1);
+  }
+  g->minDisp = -16;
+  g->maxDisp = 0;
   // Follow convention and initialize CUDA/GPU
   // used here to invoke initialization of GPU locking
   cudaFree(0);
@@ -138,7 +146,7 @@ extern "C" void init(int sync_level) {
     exit(EXIT_FAILURE);
   }
   cudaSetDevice(0);
-  cudaStreamCreate(&stream);
+  cudaStreamCreate(&(g->stream));
 }
 
 
@@ -147,29 +155,30 @@ extern "C" void mallocCPU(int numElements) {
   // functions allocate memory for the images on host side
   // initialize pointers to NULL to request lib call to allocate as needed
   // PPM images are loaded into 4 byte/pixel memory (RGBX)
-  h_img0 = NULL;
-  h_img1 = NULL;
-  if (!loadPPM4ub(fname0, &h_img0, &w, &h)) {
+  g->h_img0 = NULL;
+  g->h_img1 = NULL;
+  if (!loadPPM4ub(fname0, &(g->h_img0), &(g->w), &(g->h))) {
     fprintf(stderr, "Failed to load <%s>\n", fname0);
     exit(-1);
   }
-  if (!loadPPM4ub(fname1, &h_img1, &w, &h)) {
+  if (!loadPPM4ub(fname1, &(g->h_img1), &(g->w), &(g->h))) {
     fprintf(stderr, "Failed to load <%s>\n", fname1);
     exit(-1);
   }
   // set up parameters used in the rest of program
-  numThreads = dim3(blockSize_x, blockSize_y, 1);
-  numBlocks = dim3(iDivUp(w, numThreads.x), iDivUp(h, numThreads.y));
-  numData = w * h;
-  memSize = sizeof(int) * numData;
+  g->numThreads = dim3(blockSize_x, blockSize_y, 1);
+  g->numBlocks = dim3(iDivUp(g->w, g->numThreads.x), iDivUp(g->h,
+    g->numThreads.y));
+  g->numData = g->w * g->h;
+  g->memSize = sizeof(int) * g->numData;
 
   // allocate memory for the result on host side
-  checkCudaErrors(cudaMallocHost(&h_odata, memSize));
+  checkCudaErrors(cudaMallocHost(&(g->h_odata), g->memSize));
 
   // more setup for using the GPU
-  offset = 0;
-  ca_desc0 = cudaCreateChannelDesc<unsigned int>();
-  ca_desc1 = cudaCreateChannelDesc<unsigned int>();
+  g->offset = 0;
+  g->ca_desc0 = cudaCreateChannelDesc<unsigned int>();
+  g->ca_desc1 = cudaCreateChannelDesc<unsigned int>();
 
   tex2Dleft.addressMode[0] = cudaAddressModeClamp;
   tex2Dleft.addressMode[1] = cudaAddressModeClamp;
@@ -184,51 +193,56 @@ extern "C" void mallocCPU(int numElements) {
 
 extern "C" void mallocGPU(int unused) {
   // allocate device memory for inputs and result
-  checkCudaErrors(cudaMalloc((void **) &d_odata, memSize));
-  checkCudaErrors(cudaMalloc((void **) &d_img0, memSize));
-  checkCudaErrors(cudaMalloc((void **) &d_img1, memSize));
-  checkCudaErrors(cudaBindTexture2D(&offset, tex2Dleft, d_img0, ca_desc0, w, h,
-    w * 4));
-  assert(offset == 0);
-  checkCudaErrors(cudaBindTexture2D(&offset, tex2Dright, d_img1, ca_desc1, w,
-    h, w * 4));
-  assert(offset == 0);
+  checkCudaErrors(cudaMalloc(&(g->d_odata), g->memSize));
+  checkCudaErrors(cudaMalloc(&(g->d_img0), g->memSize));
+  checkCudaErrors(cudaMalloc(&(g->d_img1), g->memSize));
+  checkCudaErrors(cudaBindTexture2D(&(g->offset), tex2Dleft, g->d_img0,
+    g->ca_desc0, g->w, g->h, g->w * 4));
+  assert(g->offset == 0);
+  checkCudaErrors(cudaBindTexture2D(&(g->offset), tex2Dright, g->d_img1,
+    g->ca_desc1, g->w, g->h, g->w * 4));
+  assert(g->offset == 0);
 }
 
 extern "C" void copyin(int unused) {
   // copy host memory with images to device
-  checkCudaErrors(cudaMemcpyAsync(d_img0,  h_img0, memSize, cudaMemcpyHostToDevice, stream));
-  checkCudaErrors(cudaMemcpyAsync(d_img1,  h_img1, memSize, cudaMemcpyHostToDevice, stream));
+  checkCudaErrors(cudaMemcpyAsync(g->d_img0, g->h_img0, g->memSize,
+    cudaMemcpyHostToDevice, g->stream));
+  checkCudaErrors(cudaMemcpyAsync(g->d_img1, g->h_img1, g->memSize,
+    cudaMemcpyHostToDevice, g->stream));
   // copy host memory that was set to zero to initialize device output
-  checkCudaErrors(cudaMemcpyAsync(d_odata, h_odata, memSize, cudaMemcpyHostToDevice, stream));
-  cudaStreamSynchronize(stream);
+  checkCudaErrors(cudaMemcpyAsync(g->d_odata, g->h_odata, g->memSize,
+    cudaMemcpyHostToDevice, g->stream));
+  cudaStreamSynchronize(g->stream);
 }
 
 extern "C" void exec(int unused) {
-  stereoDisparityKernel<<<numBlocks, numThreads, 0, stream>>>(d_img0, d_img1, d_odata, w, h, minDisp, maxDisp);
-  cudaStreamSynchronize(stream);
+  stereoDisparityKernel<<<g->numBlocks, g->numThreads, 0, g->stream>>>(
+    g->d_img0, g->d_img1, g->d_odata, g->w, g->h, g->minDisp, g->maxDisp);
+  cudaStreamSynchronize(g->stream);
   getLastCudaError("Kernel execution failed");
 }
 
 extern "C" void copyout() {
-  checkCudaErrors(cudaMemcpyAsync(h_odata, d_odata, memSize, cudaMemcpyDeviceToHost, stream));
-  cudaStreamSynchronize(stream);
+  checkCudaErrors(cudaMemcpyAsync(g->h_odata, g->d_odata, g->memSize,
+    cudaMemcpyDeviceToHost, g->stream));
+  cudaStreamSynchronize(g->stream);
 }
 
 extern "C" void freeGPU() {
-  checkCudaErrors(cudaFree(d_odata));
-  checkCudaErrors(cudaFree(d_img0));
-  checkCudaErrors(cudaFree(d_img1));
+  checkCudaErrors(cudaFree(g->d_odata));
+  checkCudaErrors(cudaFree(g->d_img0));
+  checkCudaErrors(cudaFree(g->d_img1));
 }
 
 extern "C" void freeCPU() {
-  cudaFreeHost(h_odata);
-  cudaFreeHost(h_img0);
-  cudaFreeHost(h_img1);
+  cudaFreeHost(g->h_odata);
+  cudaFreeHost(g->h_img0);
+  cudaFreeHost(g->h_img1);
 }
 
 extern "C" void finish() {
-  cudaStreamSynchronize(stream);
-  cudaStreamDestroy(stream);
+  cudaStreamSynchronize(g->stream);
+  cudaStreamDestroy(g->stream);
   checkCudaErrors(cudaDeviceReset());
 }
