@@ -67,13 +67,12 @@ typedef struct {
   unsigned int *d_img1;
   // Kernel execution parameters
   unsigned int w, h;
-  size_t offset;
   dim3 numThreads;
   dim3 numBlocks;
   unsigned int numData;
   unsigned int memSize;
-  cudaChannelFormatDesc ca_desc0;
-  cudaChannelFormatDesc ca_desc1;
+  cudaTextureObject_t texture_right;
+  cudaTextureObject_t texture_left;
   // Search parameters
   int minDisp;
   int maxDisp;
@@ -92,7 +91,6 @@ inline bool loadPPM4ub(const char *file, unsigned char **data,
   unsigned int *w, unsigned int *h) {
   unsigned char *idata = 0;
   unsigned int channels;
-
   if (!__loadPPM(file, &idata, w, h, &channels)) {
     free(idata);
     return false;
@@ -174,34 +172,37 @@ extern "C" void mallocCPU(int numElements) {
 
   // allocate memory for the result on host side
   checkCudaErrors(cudaMallocHost(&(g->h_odata), g->memSize));
-
-  // more setup for using the GPU
-  g->offset = 0;
-  g->ca_desc0 = cudaCreateChannelDesc<unsigned int>();
-  g->ca_desc1 = cudaCreateChannelDesc<unsigned int>();
-
-  tex2Dleft.addressMode[0] = cudaAddressModeClamp;
-  tex2Dleft.addressMode[1] = cudaAddressModeClamp;
-  tex2Dleft.filterMode     = cudaFilterModePoint;
-  tex2Dleft.normalized     = false;
-  tex2Dright.addressMode[0] = cudaAddressModeClamp;
-  tex2Dright.addressMode[1] = cudaAddressModeClamp;
-  tex2Dright.filterMode     = cudaFilterModePoint;
-  tex2Dright.normalized     = false;
 }
 
 
 extern "C" void mallocGPU(int unused) {
+  cudaResourceDesc left_resource, right_resource;
+  cudaTextureDesc texture_desc;
+  cudaChannelFormatDesc desc = cudaCreateChannelDesc<unsigned int>();
   // allocate device memory for inputs and result
   checkCudaErrors(cudaMalloc(&(g->d_odata), g->memSize));
   checkCudaErrors(cudaMalloc(&(g->d_img0), g->memSize));
   checkCudaErrors(cudaMalloc(&(g->d_img1), g->memSize));
-  checkCudaErrors(cudaBindTexture2D(&(g->offset), tex2Dleft, g->d_img0,
-    g->ca_desc0, g->w, g->h, g->w * 4));
-  assert(g->offset == 0);
-  checkCudaErrors(cudaBindTexture2D(&(g->offset), tex2Dright, g->d_img1,
-    g->ca_desc1, g->w, g->h, g->w * 4));
-  assert(g->offset == 0);
+  // Initialize texture objects.
+  memset(&left_resource, 0, sizeof(left_resource));
+  left_resource.resType = cudaResourceTypePitch2D;
+  left_resource.res.pitch2D.width = g->w;
+  left_resource.res.pitch2D.height = g->h;
+  left_resource.res.pitch2D.desc = desc;
+  left_resource.res.pitch2D.pitchInBytes = g->w * 4;
+  // The only difference between the left and right textures is the image
+  memcpy(&right_resource, &left_resource, sizeof(left_resource));
+  left_resource.res.pitch2D.devPtr = g->d_img0;
+  right_resource.res.pitch2D.devPtr = g->d_img1;
+  texture_desc.addressMode[0] = cudaAddressModeClamp;
+  texture_desc.addressMode[1] = cudaAddressModeClamp;
+  texture_desc.filterMode = cudaFilterModePoint;
+  texture_desc.readMode = cudaReadModeElementType;
+  checkCudaErrors(cudaCreateTextureObject(&(g->texture_left), &left_resource,
+    &texture_desc, NULL));
+  checkCudaErrors(cudaCreateTextureObject(&(g->texture_right), &right_resource,
+    &texture_desc, NULL));
+
 }
 
 extern "C" void copyin(int unused) {
@@ -218,7 +219,8 @@ extern "C" void copyin(int unused) {
 
 extern "C" void exec(int unused) {
   stereoDisparityKernel<<<g->numBlocks, g->numThreads, 0, g->stream>>>(
-    g->d_img0, g->d_img1, g->d_odata, g->w, g->h, g->minDisp, g->maxDisp);
+    g->d_img0, g->d_img1, g->d_odata, g->w, g->h, g->minDisp, g->maxDisp,
+    g->texture_left, g->texture_right);
   cudaStreamSynchronize(g->stream);
   getLastCudaError("Kernel execution failed");
 }
@@ -243,6 +245,8 @@ extern "C" void freeCPU() {
 
 extern "C" void finish() {
   cudaStreamSynchronize(g->stream);
+  cudaDestroyTextureObject(g->texture_right);
+  cudaDestroyTextureObject(g->texture_left);
   cudaStreamDestroy(g->stream);
   checkCudaErrors(cudaDeviceReset());
 }

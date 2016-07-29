@@ -1,13 +1,17 @@
 #!/bin/bash
 
 # Configuration
-duration=$((10*60)) # 10 minutes
+duration=$((10)) # 10 minutes
 size=$((2^22))
 randsleep="--randsleep"
 copy="c"
 
 args="$copy $duration $size $randsleep"
 
+echo "4/
+4_sd/" | ./run_benchmark_parse.sh $args
+
+: <<'END'
 # Experiments
 echo "1/
 1_fasthog/
@@ -73,4 +77,4 @@ echo "VA_CPU/
 1_va_1_fasthog/
 2_va_1_fasthog/
 3_va_1_fasthog/" | ./run_benchmark_parse.sh $args
-
+END
