@@ -63,10 +63,6 @@ void MallocCPU(int numElements, void *thread_data) {
     printf("Failed allocating vector C.\n");
     exit(1);
   }
-  if (!mlockall(MCL_CURRENT | MCL_FUTURE)) {
-    error("Failed to lock code pages");
-    exit(1);
-  }
 }
 
 void MallocGPU(int numElements, void *thread_data) {

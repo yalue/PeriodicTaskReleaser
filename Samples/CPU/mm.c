@@ -67,10 +67,6 @@ void MallocCPU(int numElements, void *unused) {
     printf("Failed allocating result matrix.\n");
     exit(1);
   }
-  if (!mlockall(MCL_CURRENT | MCL_FUTURE)) {
-    error(stderr, "Failed to lock code pages.");
-    exit(0);
-  }
 }
 
 void MallocGPU(int numElements, void *unused) {

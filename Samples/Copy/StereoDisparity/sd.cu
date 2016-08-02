@@ -120,13 +120,21 @@ void* Initialize(int sync_level) {
     cudaSetDeviceFlags(cudaDeviceBlockingSync);
     break;
   default:
-    fprintf(stderr, "Unknown sync level: %d\n", sync_level);
+    printf("Unknown sync level: %d\n", sync_level);
     break;
   }
+  cudaSetDevice(0);
+  cudaFree(0);
   checkCudaErrors(cudaMallocHost(&g, sizeof(ThreadContext)));
+  /*
+  g = (ThreadContext *) malloc(sizeof(ThreadContext));
+  if (!g) {
+    printf("Failed allocating thread context.\n");
+    exit(1);
+  }
+  */
   g->minDisp = -16;
   g->maxDisp = 0;
-  cudaSetDevice(0);
   cudaStreamCreate(&(g->stream));
   return g;
 }

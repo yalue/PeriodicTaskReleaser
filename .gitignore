@@ -5,5 +5,4 @@ Samples/fasthog_*
 Samples/convbench_*
 *fasthog.a
 *convbench.a
-Periodic/launcher_*
 Benchmark/benchmark_*

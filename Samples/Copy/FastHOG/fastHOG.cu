@@ -72,7 +72,7 @@ void Exec(int numElements, void *thread_data) {
   BeginProcess(&image, -1, -1, -1, -1, -1.0f, -1.0f);
 }
 
-void Copyout(void *thread_data) {
+void CopyOut(void *thread_data) {
   EndProcess();
 }
 
