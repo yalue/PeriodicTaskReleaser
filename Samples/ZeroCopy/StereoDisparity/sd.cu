@@ -128,12 +128,7 @@ void* Initialize(int sync_level) {
   g->maxDisp = 0;
   // Follow convention and initialize CUDA/GPU
   // used here to invoke initialization of GPU locking
-  cudaFree(0);
-  // Pin code
-  if (!mlockall(MCL_CURRENT | MCL_FUTURE)) {
-    fprintf(stderr, "Failed to lock code pages.\n");
-    exit(EXIT_FAILURE);
-  }
+  cudaSetDeviceFlags(cudaDeviceMapHost);
   cudaSetDevice(0);
   cudaStreamCreate(&(g->stream));
   return g;
@@ -247,5 +242,6 @@ void Finish(void *thread_data) {
   cudaDestroyTextureObject(g->texture_right);
   cudaDestroyTextureObject(g->texture_left);
   cudaStreamDestroy(g->stream);
+  cudaFreeHost(g);
   checkCudaErrors(cudaDeviceReset());
 }

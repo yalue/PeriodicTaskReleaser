@@ -57,7 +57,7 @@ void random_float(float *ptr, int size) {
   }
 }
 
-void init(int sync_level) {
+void* Initialize(int sync_level) {
   switch (sync_level) {
   case 0:
     cudaSetDeviceFlags(cudaDeviceScheduleSpin);
@@ -76,17 +76,6 @@ void init(int sync_level) {
     printf("Unable to set cuda device.\n");
     exit(1);
   }
-  if (cudaFree(0) != cudaSuccess) {
-    printf("Error running cudaFree(0).\n");
-    exit(1);
-  }
-
-  // Pin code
-  if(!mlockall(MCL_CURRENT | MCL_FUTURE)) {
-    fprintf(stderr, "Failed to lock code pages.\n");
-    exit(EXIT_FAILURE);
-  }
-
   if (cudaStreamCreate(&stream) != cudaSuccess) {
     printf("Unable to create cuda stream.\n");
     exit(1);
@@ -119,9 +108,10 @@ void init(int sync_level) {
     if (K * N > max_image_col_size) max_image_col_size = K * N;
     if (M * N > max_result_size) max_result_size = M * N;
   }
+  return NULL;
 }
 
-void mallocCPU(int numElements) {
+void MallocCPU(int numElements, void *thread_data) {
   checkCudaErrors(cudaMallocHost(&h_image, max_image_size * sizeof(float)));
   checkCudaErrors(cudaMallocHost(&h_filter, max_filter_size * sizeof(float)));
   checkCudaErrors(cudaMallocHost(&h_result, max_result_size * sizeof(float)));
@@ -129,7 +119,7 @@ void mallocCPU(int numElements) {
   random_float(h_filter, max_filter_size);
 }
 
-void mallocGPU(int numElements) {
+void MallocGPU(int numElements, void *thread_data) {
   checkCudaErrors(cudaMalloc(&d_image, max_image_size * sizeof(float)));
   checkCudaErrors(cudaMalloc(&d_filter, max_filter_size * sizeof(float)));
   checkCudaErrors(cudaMalloc(&d_image_col, max_image_col_size *
@@ -137,7 +127,7 @@ void mallocGPU(int numElements) {
   checkCudaErrors(cudaMalloc(&d_result, max_result_size * sizeof(float)));
 }
 
-void copyin(int numElements) {
+void CopyIn(int numElements, void *thread_data) {
   checkCudaErrors(cudaMemcpyAsync(d_image, h_image, max_image_size *
     sizeof(float), cudaMemcpyHostToDevice, stream));
   checkCudaErrors(cudaMemcpyAsync(d_filter, h_filter, max_filter_size *
@@ -145,7 +135,7 @@ void copyin(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-void exec(int numElements) {
+void Exec(int numElements, void *thread_data) {
   for (int i = 0; i < sizeof(info) / sizeof(im2col_info); i++) {
     im2col_info curr = info[i];
     int M = curr.num_filters;
@@ -164,13 +154,13 @@ void exec(int numElements) {
   }
 }
 
-void copyout() {
+void CopyOut(void *thread_data) {
   checkCudaErrors(cudaMemcpyAsync(h_result, d_result, max_result_size *
     sizeof(float), cudaMemcpyDeviceToHost, stream));
   checkCudaErrors(cudaStreamSynchronize(stream));
 }
 
-void freeGPU() {
+void FreeGPU(void *thread_data) {
   cudaFree(d_image);
   d_image = NULL;
   cudaFree(d_image_col);
@@ -181,7 +171,7 @@ void freeGPU() {
   d_result = NULL;
 }
 
-void freeCPU() {
+void FreeCPU(void *thread_data) {
   cudaFreeHost(h_image);
   h_image = NULL;
   cudaFreeHost(h_filter);
@@ -190,7 +180,7 @@ void freeCPU() {
   h_result = NULL;
 }
 
-void finish() {
+void Finish(void *thread_data) {
   cudaStreamSynchronize(stream);
   cudaStreamDestroy(stream);
   if (cudaDeviceReset() != cudaSuccess) {

@@ -43,10 +43,11 @@ static void Multiply(float *a, float *b, float *c, int a_width, int b_width) {
   }
 }
 
-void init(int sync_level) {
+void* Initialize(int sync_level) {
+  return NULL;
 }
 
-void mallocCPU(int numElements) {
+void MallocCPU(int numElements, void *unused) {
   a_width = sqrt(numElements);
   b_width = sqrt(numElements);
   matrix_size = a_width * a_width;
@@ -66,32 +67,32 @@ void mallocCPU(int numElements) {
     printf("Failed allocating result matrix.\n");
     exit(1);
   }
-  if(!mlockall(MCL_CURRENT | MCL_FUTURE)) {
+  if (!mlockall(MCL_CURRENT | MCL_FUTURE)) {
     error(stderr, "Failed to lock code pages.");
     exit(0);
   }
 }
 
-void mallocGPU(int numElements) {
+void MallocGPU(int numElements, void *unused) {
 }
 
-void copyin(int numElements) {
+void CopyIn(int numElements, void *unused) {
   // Re-initialize memory in place of copying in for this demo.
   ConstantInit(matrix_a, matrix_size, 1.0f);
   ConstantInit(matrix_b, matrix_size, 0.01f);
 }
 
-void exec(int numElements) {
+void Exec(int numElements, void *unused) {
   Multiply(matrix_a, matrix_b, result_matrix, a_width, b_width);
 }
 
-void copyout() {
+void CopyOut(void *unused) {
 }
 
-void freeGPU() {
+void FreeGPU(void *unused) {
 }
 
-void freeCPU() {
+void FreeCPU(void *unused) {
   free(matrix_a);
   matrix_a = NULL;
   free(matrix_b);
@@ -100,5 +101,5 @@ void freeCPU() {
   result_matrix = NULL;
 }
 
-void finish() {
+void Finish(void *unused) {
 }

@@ -35,7 +35,7 @@ size_t vector_bytes;
 int v_threadsPerBlock;
 int v_blocksPerGrid;
 
-void init(int sync_level) {
+void* Initialize(int sync_level) {
   /*
    * The sync_level parameter is an integer that indicates the desired level of
    * synchronization used by the GPU driver (values defined below).  The
@@ -56,25 +56,12 @@ void init(int sync_level) {
       fprintf(stderr, "Unknown sync level: %d\n", sync_level);
       break;
   }
-
-  // Follow convention and initialize CUDA/GPU
-  // used here to invoke initialization of GPU locking
-  cudaFree(0);
-
-  // pin code
-  if(!mlockall(MCL_CURRENT | MCL_FUTURE)) {
-    fprintf(stderr, "Failed to lock code pages.\n");
-    exit(EXIT_FAILURE);
-  }
-
-  // Set the device context 
   cudaSetDevice(0);
-
-  // create a user defined stream
   cudaStreamCreate(&stream);
+  return NULL;
 }
 
-void mallocCPU(int numElements) {
+void MallocCPU(int numElements, void *thread_data) {
   vector_bytes = numElements * sizeof(float);
 
   // Host allocations in pinned memory
@@ -108,8 +95,7 @@ void mallocCPU(int numElements) {
   v_blocksPerGrid = (numElements + v_threadsPerBlock - 1) / v_threadsPerBlock;
 }
 
-
-void mallocGPU(int numElements) {
+void MallocGPU(int numElements, void *thread_data) {
   // Allocate the device input vector A
   cudaError_t err = cudaMalloc((void **)&dA, vector_bytes);
   if (err != cudaSuccess) {
@@ -132,7 +118,7 @@ void mallocGPU(int numElements) {
   }
 }
 
-void copyin(int numElements) {
+void CopyIn(int numElements, void *thread_data) {
   // copy the A and B vectors from Host to Device memory
   // these calls are asynchronous so only the lock of CE can be handled in the wrapper
   cudaError_t err = cudaMemcpyAsync(dA, hA, vector_bytes, cudaMemcpyHostToDevice, stream);
@@ -152,7 +138,7 @@ void copyin(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-void exec(int numElements) {
+void Exec(int numElements, void *thread_data) {
   cudaError_t err = cudaSuccess;
 
   // Launch the Vector Add CUDA Kernel
@@ -169,7 +155,7 @@ void exec(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-void copyout() {
+void CopyOut(void *thread_data) {
   // Copy the result vector from Device to Host memory
   // This call is asynchronous so only the lock of CE can be handled in the wrapper
   cudaError_t err = cudaMemcpyAsync(hC, dC, vector_bytes, cudaMemcpyDeviceToHost, stream);
@@ -183,7 +169,7 @@ void copyout() {
   cudaStreamSynchronize(stream);
 }
 
-void freeGPU() {
+void FreeGPU(void *thread_data) {
   // Free device global memory for inputs A and B and result C
   cudaError_t err = cudaFree(dA);
   if (err != cudaSuccess) {
@@ -204,24 +190,17 @@ void freeGPU() {
   }
 }
 
-void freeCPU() {
+void FreeCPU(void *thread_data) {
   // Free host memory that was pinned
   cudaFreeHost(hA);
   cudaFreeHost(hB);
   cudaFreeHost(hC);
 }
 
-void finish() {
-  // clean up the user allocated stream
+void Finish(void *thread_data) {
   cudaStreamSynchronize(stream);
   cudaStreamDestroy(stream);
 
-  // Reset the device and return
-  // cudaDeviceReset causes the driver to clean up all state. While
-  // not mandatory in normal operation, it is good practice.  It is also
-  // needed to ensure correct operation when the application is being
-  // profiled. Calling cudaDeviceReset causes all profile data to be
-  // flushed before the application returns
   cudaError_t err = cudaDeviceReset();
   if (err != cudaSuccess) {
     fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));

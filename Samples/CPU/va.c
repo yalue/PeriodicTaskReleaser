@@ -7,6 +7,11 @@
 float *vector_a, *vector_b, *result_vector;
 int vector_bytes;
 
+typedef struct {
+  float *vector_a, *vector_b, *result_vector;
+  int vector_bytes;
+} ThreadData;
+
 // Sets vector c = a + b
 static void Add(float *a, float *b, float *c, int length) {
   int i;
@@ -31,22 +36,29 @@ static void PrintVector(float *v, int length) {
   printf("\n");
 }
 
-void init(int sync_level) {
+void* Initialize(int sync_level) {
+  ThreadData *g = malloc(sizeof(ThreadData));
+  if (!g) {
+    printf("Error allocating thread data.\n");
+    exit(1);
+  }
+  return g;
 }
 
-void mallocCPU(int numElements) {
-  vector_bytes = numElements * sizeof(float);
-  vector_a = (float *) malloc(vector_bytes);
-  if (!vector_a) {
+void MallocCPU(int numElements, void *thread_data) {
+  ThreadData *g = (ThreadData *) thread_data;
+  g->vector_bytes = numElements * sizeof(float);
+  g->vector_a = (float *) malloc(g->vector_bytes);
+  if (!g->vector_a) {
     printf("Failed allocating vector A.\n");
     exit(1);
   }
-  vector_b = (float *) malloc(vector_bytes);
-  if (!vector_b) {
+  g->vector_b = (float *) malloc(g->vector_bytes);
+  if (!g->vector_b) {
     printf("Failed allocating vector B.\n");
     exit(1);
   }
-  result_vector = (float *) malloc(vector_bytes);
+  g->result_vector = (float *) malloc(g->vector_bytes);
   if (!result_vector) {
     printf("Failed allocating vector C.\n");
     exit(1);
@@ -57,32 +69,36 @@ void mallocCPU(int numElements) {
   }
 }
 
-void mallocGPU(int numElements) {
+void MallocGPU(int numElements, void *thread_data) {
 }
 
-void copyin(int numElements) {
-  RandomFill(vector_a, numElements);
-  RandomFill(vector_b, numElements);
+void CopyIn(int numElements, void *thread_data) {
+  ThreadData *g = (ThreadData *) thread_data;
+  RandomFill(g->vector_a, numElements);
+  RandomFill(g->vector_b, numElements);
 }
 
-void exec(int numElements) {
-  Add(vector_a, vector_b, result_vector, numElements);
+void Exec(int numElements, void *thread_data) {
+  ThreadData *g = (ThreadData *) thread_data;
+  Add(g->vector_a, g->vector_b, g->result_vector, numElements);
 }
 
-void copyout() {
+void CopyOut(void *thread_data) {
 }
 
-void freeGPU() {
+void FreeGPU(void *thread_data) {
 }
 
-void freeCPU() {
-  free(vector_a);
-  vector_a = NULL;
-  free(vector_b);
-  vector_b = NULL;
-  free(result_vector);
-  result_vector = NULL;
+void FreeCPU(void *thread_data) {
+  ThreadData *g = (ThreadData *) thread_data;
+  free(g->vector_a);
+  g->vector_a = NULL;
+  free(g->vector_b);
+  g->vector_b = NULL;
+  free(g->result_vector);
+  g->result_vector = NULL;
 }
 
-void finish() {
+void Finish(void *thread_data) {
+  free(thread_data);
 }

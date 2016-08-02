@@ -108,7 +108,8 @@ int main(int argc, char** argv) {
   // initialize end time to experiment start time.
   // this copies the primitive fields tv_sec and tv_nsec.
   end = experiment_start;
-
+  // TODO: Do a cudaFree and mlockall here (taken out of individual benchmarks'
+  // init functions)
   init(arguments.sync);
   mallocCPU(arguments.data_size);
   mallocGPU(arguments.data_size);

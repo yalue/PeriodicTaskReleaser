@@ -21,7 +21,7 @@ cudaStream_t stream;
 
 char file_name[] = "../Samples/Copy/FastHOG/Files/Images/testImage.bmp";
 
-void init(int sync_level) {
+void* Initialize(int sync_level) {
   switch (sync_level) {
   case 0:
     cudaSetDeviceFlags(cudaDeviceScheduleSpin);
@@ -44,55 +44,47 @@ void init(int sync_level) {
     printf("Unable to set cuda device.\n");
     exit(1);
   }
-  if (cudaFree(0) != cudaSuccess) {
-    printf("Error running cudaFree(0).\n");
-    exit(1);
-  }
-  // Pin code
-  if(!mlockall(MCL_CURRENT | MCL_FUTURE)) {
-    fprintf(stderr, "Failed to lock code pages.\n");
-    exit(EXIT_FAILURE);
-  }
   if (cudaStreamCreate(&stream) != cudaSuccess) {
     printf("Unable to create cuda stream.\n");
     exit(1);
   }
   InitializeHOG(image.width, image.height, PERSON_LINEAR_BIAS,
     PERSON_WEIGHT_VEC, PERSON_WEIGHT_VEC_LENGTH);
+  return NULL;
 }
 
-void mallocCPU(int numElements) {
+void MallocCPU(int numElements, void *thread_data) {
   HostAllocHOGEngineDeviceMemory();
 }
 
-void mallocGPU(int numElements) {
+void MallocGPU(int numElements, void *thread_data) {
   DeviceAllocHOGEngineDeviceMemory();
 }
 
-void copyin(int numElements) {
+void CopyIn(int numElements, void *thread_data) {
   CopyInHOGEngineDevice();
 }
 
-void exec(int numElements) {
+void Exec(int numElements, void *thread_data) {
   // There are still memcpys to the device in HOGScale and HOGPadding--they
   // may require more work to get rid of because they seem to rely on variables
   // determined during the execution phase.
   BeginProcess(&image, -1, -1, -1, -1, -1.0f, -1.0f);
 }
 
-void copyout() {
+void Copyout(void *thread_data) {
   EndProcess();
 }
 
-void freeGPU() {
+void FreeGPU(void *thread_data) {
   DeviceFreeHOGEngineDeviceMemory();
 }
 
-void freeCPU() {
+void FreeCPU(void *thread_data) {
   HostFreeHOGEngineDeviceMemory();
 }
 
-void finish() {
+void Finish(void *thread_data) {
   FinalizeHOG();
   cudaStreamSynchronize(stream);
   cudaStreamDestroy(stream);
@@ -102,18 +94,3 @@ void finish() {
     exit(1);
   }
 }
-
-/*
-int main(void) {
-  init(0);
-  mallocCPU(0);
-  mallocGPU(0);
-  copyin(0);
-  exec(0);
-  copyout();
-  freeGPU();
-  freeCPU();
-  finish();
-  return 0;
-}
-*/
