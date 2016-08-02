@@ -3,11 +3,8 @@ INC += -I/home/ubuntu/samples/NVIDIA_CUDA-6.5_Samples/common/inc
 INC += -I/home/ubuntu/NVIDIA_CUDA_7.0/common/inc
 INC += -I/playpen/cuda_70_samples/common/inc
 
-all: mem_c.o va_c.o mm_c.o mem_zc.o va_zc.o mm_zc.o sf_c.o sf_zc.o sd_c.o sd_zc.o \
-	fasthog_c.a fasthog_zc.a convbench_c.a convbench_zc.a va_cpu.o mm_cpu.o
-
-mem_c.o: Copy/mem.cu
-	nvcc -c Copy/mem.cu -o mem_c.o --cudart shared -g --ptxas-options=-v
+all: va_c.o mm_c.o va_zc.o mm_zc.o sd_c.o sd_zc.o fasthog_c.a fasthog_zc.a \
+	convbench_c.a convbench_zc.a va_cpu.o mm_cpu.o
 
 va_cpu.o: CPU/va.c
 	gcc -c CPU/va.c -o va_cpu.o
@@ -21,20 +18,11 @@ va_c.o: Copy/va.cu
 mm_c.o: Copy/mm.cu
 	nvcc -c Copy/mm.cu -o mm_c.o --cudart shared -g --ptxas-options=-v
 
-sf_c.o: Copy/SobelFilter/sf.cu
-	nvcc -c Copy/SobelFilter/sf.cu -o sf_c.o --cudart shared -g --ptxas-options=-v $(INC)
-
-sf_zc.o: ZeroCopy/SobelFilter/sf.cu
-	nvcc -c ZeroCopy/SobelFilter/sf.cu -o sf_zc.o --cudart shared -g --ptxas-options=-v $(INC)
-
 sd_c.o: Copy/StereoDisparity/sd.cu
 	nvcc -c Copy/StereoDisparity/sd.cu -o sd_c.o --cudart shared -g --ptxas-options=-v $(INC)
 
 sd_zc.o: ZeroCopy/StereoDisparity/sd.cu
 	nvcc -c ZeroCopy/StereoDisparity/sd.cu -o sd_zc.o --cudart shared -g --ptxas-options=-v $(INC)
-
-mem_zc.o: ZeroCopy/mem.cu
-	nvcc -c ZeroCopy/mem.cu -o mem_zc.o --cudart shared -g --ptxas-options=-v
 
 va_zc.o: ZeroCopy/va.cu
 	nvcc -c ZeroCopy/va.cu -o va_zc.o --cudart shared -g --ptxas-options=-v

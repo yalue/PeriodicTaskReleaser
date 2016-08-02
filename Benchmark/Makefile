@@ -3,10 +3,9 @@ UTIL_DIR = ../util
 INC = -I$(UTIL_DIR) -I$(SAMPLE_DIR)
 HOSTARCH = armv7l
 
-all: benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_mem_c \
-		benchmark_mem_zc benchmark_sf_c benchmark_sf_zc benchmark_sd_c benchmark_sd_zc \
-		benchmark_fasthog_c benchmark_fasthog_zc benchmark_va_cpu benchmark_mm_cpu \
-		benchmark_convbench_c benchmark_convbench_zc
+all: benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_sd_c \
+		benchmark_sd_zc benchmark_fasthog_c benchmark_fasthog_zc benchmark_va_cpu \
+		benchmark_mm_cpu benchmark_convbench_c benchmark_convbench_zc
 
 benchmark_va_c: benchmark.o util.o
 	cd $(SAMPLE_DIR) && make va_c.o
@@ -31,22 +30,6 @@ benchmark_mm_zc: benchmark.o util.o
 benchmark_mm_cpu: benchmark.o util.o
 	cd $(SAMPLE_DIR) && make mm_cpu.o
 	nvcc benchmark.o $(SAMPLE_DIR)/mm_cpu.o util.o -o benchmark_mm_cpu --cudart shared -g -lm
-
-benchmark_mem_c: benchmark.o util.o
-	cd $(SAMPLE_DIR) && make mem_c.o
-	nvcc benchmark.o $(SAMPLE_DIR)/mem_c.o util.o -o benchmark_mem_c --cudart shared -g
-
-benchmark_mem_zc: benchmark.o util.o
-	cd $(SAMPLE_DIR) && make mem_zc.o
-	nvcc benchmark.o $(SAMPLE_DIR)/mem_zc.o util.o -o benchmark_mem_zc --cudart shared -g
-
-benchmark_sf_c: benchmark.o util.o
-	cd $(SAMPLE_DIR) && make sf_c.o
-	nvcc benchmark.o $(SAMPLE_DIR)/sf_c.o util.o -o benchmark_sf_c --cudart shared -g
-
-benchmark_sf_zc: benchmark.o util.o
-	cd $(SAMPLE_DIR) && make sf_zc.o
-	nvcc benchmark.o $(SAMPLE_DIR)/sf_zc.o util.o -o benchmark_sf_zc --cudart shared -g
 
 benchmark_sd_c: benchmark.o util.o
 	cd $(SAMPLE_DIR) && make sd_c.o
@@ -76,9 +59,6 @@ benchmark_convbench_zc: benchmark.o util.o
 
 benchmark.o: ./benchmark.c
 	gcc -c ./benchmark.c -Wall -g $(INC)
-
-memtest.o: ./memtest.c
-	gcc -c ./memtest.c -Wall -g
 
 util.o: $(UTIL_DIR)/util.c
 	gcc -c $(UTIL_DIR)/util.c -Wall -g
