@@ -4,9 +4,6 @@
 
 #include "../gpusync.h"
 
-float *vector_a, *vector_b, *result_vector;
-int vector_bytes;
-
 typedef struct {
   float *vector_a, *vector_b, *result_vector;
   int vector_bytes;
@@ -59,7 +56,7 @@ void MallocCPU(int numElements, void *thread_data) {
     exit(1);
   }
   g->result_vector = (float *) malloc(g->vector_bytes);
-  if (!result_vector) {
+  if (!g->result_vector) {
     printf("Failed allocating vector C.\n");
     exit(1);
   }
