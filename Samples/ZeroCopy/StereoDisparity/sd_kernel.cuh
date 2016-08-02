@@ -23,10 +23,6 @@
 // (see convolution CUDA Sample for example)
 #define STEPS 3
 
-texture<unsigned int, cudaTextureType2D, cudaReadModeElementType> tex2Dleft;
-texture<unsigned int, cudaTextureType2D, cudaReadModeElementType> tex2Dright;
-
-
 ////////////////////////////////////////////////////////////////////////////////
 // This function applies the video instrinsic operations to compute a
 // sum of absolute differences.  The absolute differences are computed
@@ -69,12 +65,10 @@ __device__ unsigned int __usad4(unsigned int A, unsigned int B, unsigned int C=0
 //! @param minDisparity leftmost search range
 //! @param maxDisparity rightmost search range
 ////////////////////////////////////////////////////////////////////////////////
-__global__ void
-stereoDisparityKernel(unsigned int *g_img0, unsigned int *g_img1,
-                      unsigned int *g_odata,
-                      int w, int h,
-                      int minDisparity, int maxDisparity)
-{
+__global__ void stereoDisparityKernel(unsigned int *g_img0,
+  unsigned int *g_img1, unsigned int *g_odata, int w, int h, int minDisparity,
+  int maxDisparity, cudaTextureObject_t image_left,
+  cudaTextureObject_t image_right) {
     // access thread id
     const int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     const int tidy = blockDim.y * blockIdx.y + threadIdx.y;
@@ -95,8 +89,8 @@ stereoDisparityKernel(unsigned int *g_img0, unsigned int *g_img1,
     for (int i=0; i<STEPS; i++)
     {
         int offset = -RAD + i*RAD;
-        imLeftA[i] = tex2D(tex2Dleft, tidx-RAD, tidy+offset);
-        imLeftB[i] = tex2D(tex2Dleft, tidx-RAD+blockSize_x, tidy+offset);
+        imLeftA[i] = tex2D<unsigned int>(image_left, tidx-RAD, tidy+offset);
+        imLeftB[i] = tex2D<unsigned int>(image_right, tidx-RAD+blockSize_x, tidy+offset);
     }
 
     // for a fixed camera system this could be hardcoded and loop unrolled
@@ -107,9 +101,8 @@ stereoDisparityKernel(unsigned int *g_img0, unsigned int *g_img1,
         for (int i=0; i<STEPS; i++)
         {
             int offset = -RAD + i*RAD;
-            //imLeft = tex2D( tex2Dleft, tidx-RAD, tidy+offset );
             imLeft = imLeftA[i];
-            imRight = tex2D(tex2Dright, tidx-RAD+d, tidy+offset);
+            imRight = tex2D<unsigned int>(image_right, tidx-RAD+d, tidy+offset);
             cost = __usad4(imLeft, imRight);
             diff[sidy+offset][sidx-RAD] = cost;
         }
@@ -123,9 +116,8 @@ stereoDisparityKernel(unsigned int *g_img0, unsigned int *g_img1,
 
             if (threadIdx.x < 2*RAD)
             {
-                //imLeft = tex2D( tex2Dleft, tidx-RAD+blockSize_x, tidy+offset );
                 imLeft = imLeftB[i];
-                imRight = tex2D(tex2Dright, tidx-RAD+blockSize_x+d, tidy+offset);
+                imRight = tex2D<unsigned int>(image_right, tidx-RAD+blockSize_x+d, tidy+offset);
                 cost = __usad4(imLeft, imRight);
                 diff[sidy+offset][sidx-RAD+blockSize_x] = cost;
             }
@@ -197,7 +189,7 @@ void cpu_gold_stereo(unsigned int *img0, unsigned int *img1, unsigned int *odata
                 {
                     for (int j=-RAD; j<=RAD; j++)
                     {
-                        //border clamping
+                        //border clampin 
                         int yy,xx,xxd;
                         yy = y+i;
 

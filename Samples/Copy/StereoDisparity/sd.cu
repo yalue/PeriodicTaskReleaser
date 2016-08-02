@@ -78,10 +78,6 @@ typedef struct {
   int maxDisp;
 } ThreadContext;
 
-// Used for work-in-progress migration of this task to one that doesn't rely on
-// global state.
-ThreadContext *g;
-
 int iDivUp(int a, int b) {
   return ((a % b) != 0) ? (a / b + 1) : (a / b);
 }
@@ -111,44 +107,40 @@ inline bool loadPPM4ub(const char *file, unsigned char **data,
   return true;
 }
 
-
-
-extern "C" void init(int sync_level) {
-   switch (sync_level) {
-   case 0:
-     cudaSetDeviceFlags(cudaDeviceScheduleSpin);
-     break;
-   case 1:
-     cudaSetDeviceFlags(cudaDeviceScheduleYield);
-     break;
-   case 2:
-     cudaSetDeviceFlags(cudaDeviceBlockingSync);
-     break;
-   default:
-     fprintf(stderr, "Unknown sync level: %d\n", sync_level);
-     break;
+void* Initialize(int sync_level) {
+  ThreadContext *g;
+  switch (sync_level) {
+  case 0:
+    cudaSetDeviceFlags(cudaDeviceScheduleSpin);
+    break;
+  case 1:
+    cudaSetDeviceFlags(cudaDeviceScheduleYield);
+    break;
+  case 2:
+    cudaSetDeviceFlags(cudaDeviceBlockingSync);
+    break;
+  default:
+    fprintf(stderr, "Unknown sync level: %d\n", sync_level);
+    break;
   }
-  g = (ThreadContext*) malloc(sizeof(ThreadContext));
-  if (!g) {
-    printf("Failed to allocate Thread Context.\n");
-    exit(1);
-  }
+  checkCudaErrors(cudaMallocHost(&g, sizeof(ThreadContext)));
   g->minDisp = -16;
   g->maxDisp = 0;
   // Follow convention and initialize CUDA/GPU
   // used here to invoke initialization of GPU locking
   cudaFree(0);
   // Pin code
-  if(!mlockall(MCL_CURRENT | MCL_FUTURE)) {
+  if (!mlockall(MCL_CURRENT | MCL_FUTURE)) {
     fprintf(stderr, "Failed to lock code pages.\n");
     exit(EXIT_FAILURE);
   }
   cudaSetDevice(0);
   cudaStreamCreate(&(g->stream));
+  return g;
 }
 
-
-extern "C" void mallocCPU(int numElements) {
+void MallocCPU(int numElements, void *thread_data) {
+  ThreadContext *g = (ThreadContext*) thread_data;
   // Load image data
   // functions allocate memory for the images on host side
   // initialize pointers to NULL to request lib call to allocate as needed
@@ -175,7 +167,8 @@ extern "C" void mallocCPU(int numElements) {
 }
 
 
-extern "C" void mallocGPU(int unused) {
+void MallocGPU(int unused, void *thread_data) {
+  ThreadContext *g = (ThreadContext*) thread_data;
   cudaResourceDesc left_resource, right_resource;
   cudaTextureDesc texture_desc;
   cudaChannelFormatDesc desc = cudaCreateChannelDesc<unsigned int>();
@@ -202,10 +195,10 @@ extern "C" void mallocGPU(int unused) {
     &texture_desc, NULL));
   checkCudaErrors(cudaCreateTextureObject(&(g->texture_right), &right_resource,
     &texture_desc, NULL));
-
 }
 
-extern "C" void copyin(int unused) {
+void CopyIn(int unused, void *thread_data) {
+  ThreadContext *g = (ThreadContext*) thread_data;
   // copy host memory with images to device
   checkCudaErrors(cudaMemcpyAsync(g->d_img0, g->h_img0, g->memSize,
     cudaMemcpyHostToDevice, g->stream));
@@ -217,7 +210,8 @@ extern "C" void copyin(int unused) {
   cudaStreamSynchronize(g->stream);
 }
 
-extern "C" void exec(int unused) {
+void Exec(int unused, void *thread_data) {
+  ThreadContext *g = (ThreadContext*) thread_data;
   stereoDisparityKernel<<<g->numBlocks, g->numThreads, 0, g->stream>>>(
     g->d_img0, g->d_img1, g->d_odata, g->w, g->h, g->minDisp, g->maxDisp,
     g->texture_left, g->texture_right);
@@ -225,25 +219,29 @@ extern "C" void exec(int unused) {
   getLastCudaError("Kernel execution failed");
 }
 
-extern "C" void copyout() {
+void CopyOut(void *thread_data) {
+  ThreadContext *g = (ThreadContext*) thread_data;
   checkCudaErrors(cudaMemcpyAsync(g->h_odata, g->d_odata, g->memSize,
     cudaMemcpyDeviceToHost, g->stream));
   cudaStreamSynchronize(g->stream);
 }
 
-extern "C" void freeGPU() {
+void FreeGPU(void *thread_data) {
+  ThreadContext *g = (ThreadContext*) thread_data;
   checkCudaErrors(cudaFree(g->d_odata));
   checkCudaErrors(cudaFree(g->d_img0));
   checkCudaErrors(cudaFree(g->d_img1));
 }
 
-extern "C" void freeCPU() {
+void FreeCPU(void *thread_data) {
+  ThreadContext *g = (ThreadContext*) thread_data;
   cudaFreeHost(g->h_odata);
   cudaFreeHost(g->h_img0);
   cudaFreeHost(g->h_img1);
 }
 
-extern "C" void finish() {
+void Finish(void *thread_data) {
+  ThreadContext *g = (ThreadContext*) thread_data;
   cudaStreamSynchronize(g->stream);
   cudaDestroyTextureObject(g->texture_right);
   cudaDestroyTextureObject(g->texture_left);
