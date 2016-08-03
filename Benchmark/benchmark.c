@@ -1,28 +1,25 @@
 #define _GNU_SOURCE
-#include <stdio.h>
-#include <time.h>
-#include <stdlib.h>
 #include <argp.h>
-#include <stdint.h>
 #include <sched.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
-
 #include "gpusync.h"
 #include "util.h"
 
-#define DEFAULT_DATA_SIZE 1024 // 2^10
-#define DEFAULT_EXPERIMENT_DURATION  1800 // 30 minutes
-#define DEFAULT_ITERATION_COUNT 2147483647 // 2^31 - 1
-#define DEFAULT_SYNC 2
-#define DEFAULT_RAND_SLEEP 0
+// 30 minutes
+#define DEFAULT_EXPERIMENT_DURATION (1800)
+#define DEFAULT_ITERATION_COUNT (0x7fffffff)
+#define DEFAULT_DATA_SIZE 1024
+#define DEFAULT_SYNC (2)
+#define DEFAULT_RAND_SLEEP (0)
+#define FIFTEEN_MS_IN_NS (15000000)
 
-#define FIFTEEN_MS_IN_NS 15000000 // 15 million
-
-/*
- * Program Args
- */
 const char *argp_program_version = "v1";
-const char *argp_program_bug_address = "<vbmiller+gpusync@cs.unc.edu>";
+const char *argp_program_bug_address = "<otternes@cs.unc.edu>";
 static char doc[] = "GPU Sample Program Benchmarking.";
 static char args_doc[] = "";
 static struct argp_option options[] = {
@@ -47,42 +44,39 @@ struct arguments {
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   struct arguments *arguments = state->input;
+  int iterations, duration;
   switch (key) {
-    case 'd':
-      {
-        int duration = atoi(arg);
-        if (duration < 0) {
-          return EINVAL;
-        }
-        arguments->experiment_duration = (uint64_t) duration;
-      }
-      break;
-    case 'n':
-      {
-        int iterations = atoi(arg);
-        if (iterations < 0) {
-          return EINVAL;
-        }
-        arguments->iteration_count = iterations;
-      }
-      break;
-    case 'r':
-      arguments->randsleep = 1;
-      break;
-    case 's':
-      arguments->data_size = atoi(arg);
-      if (arguments->data_size < 0) {
-        return EINVAL;
-      }
-      break;
-    case 'y':
-      arguments->sync= atoi(arg);
-      if (arguments->sync < 0 || arguments->sync > 2) {
-        return EINVAL;
-      }
-      break;
-    default:
-      return ARGP_ERR_UNKNOWN;
+  case 'd':
+    duration = atoi(arg);
+    if (duration < 0) {
+      return EINVAL;
+    }
+    arguments->experiment_duration = (uint64_t) duration;
+    break;
+  case 'n':
+    iterations = atoi(arg);
+    if (iterations < 0) {
+      return EINVAL;
+    }
+    arguments->iteration_count = iterations;
+    break;
+  case 'r':
+    arguments->randsleep = 1;
+    break;
+  case 's':
+    arguments->data_size = atoi(arg);
+    if (arguments->data_size < 0) {
+      return EINVAL;
+    }
+    break;
+  case 'y':
+    arguments->sync= atoi(arg);
+    if (arguments->sync < 0 || arguments->sync > 2) {
+      return EINVAL;
+    }
+    break;
+  default:
+    return ARGP_ERR_UNKNOWN;
   }
   return 0;
 }
@@ -93,6 +87,7 @@ int main(int argc, char** argv) {
   struct arguments arguments;
   struct timespec start, end, experiment_start, tmp;
   int i;
+  void *thread_data;
   // Default values
   arguments.data_size = DEFAULT_DATA_SIZE;
   arguments.experiment_duration = ((uint64_t) DEFAULT_EXPERIMENT_DURATION);
@@ -102,58 +97,58 @@ int main(int argc, char** argv) {
   // Parse args
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
-  // print output header
-  fprintf(stdout, "Timestamp, CPU core, PID, function, call/ret, arg\n");
+  printf("Timestamp, CPU core, PID, function, call/ret, arg\n");
   CURRENT_TIME(&experiment_start);
   // initialize end time to experiment start time.
   // this copies the primitive fields tv_sec and tv_nsec.
   end = experiment_start;
-
-  init(arguments.sync);
-  mallocCPU(arguments.data_size);
-  mallocGPU(arguments.data_size);
-
-  for (i = 0; elapsed_sec(&experiment_start, &end) < arguments.experiment_duration && i < arguments.iteration_count; ++i) {
+  thread_data = Initialize(arguments.sync);
+  if (!thread_data) {
+    printf("Benchmark does not support multithreading.\n");
+  }
+  MallocCPU(arguments.data_size, thread_data);
+  MallocGPU(arguments.data_size, thread_data);
+  if (!mlockall(MCL_CURRENT | MCL_FUTURE)) {
+    printf("Error: failed locking pages in memory.\n");
+    exit(1);
+  }
+  for (i = 0; i < arguments.iteration_count; i++) {
+    if (elapsed_sec(&experiment_start, &end) > arguments.experiment_duration) {
+      break;
+    }
     CURRENT_TIME(&start);
-    fprintf(stdout, "%s, %d, %d, start\n", format_time(&start), sched_getcpu(),
-        getpid());
-
+    printf("%s, %d, %d, start\n", format_time(&start), sched_getcpu(),
+      getpid());
     CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %d, %d, cudaMemcpy, call, hostToDevice\n",
-        format_time(&tmp), sched_getcpu(), getpid());
-    copyin(arguments.data_size);
+    printf("%s, %d, %d, cudaMemcpy, call, hostToDevice\n", format_time(&tmp),
+      sched_getcpu(), getpid());
+    CopyIn(arguments.data_size, thread_data);
     CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %d, %d, cudaMemcpy, return, hostToDevice\n",
-        format_time(&tmp), sched_getcpu(), getpid());
-
+    printf("%s, %d, %d, cudaMemcpy, return, hostToDevice\n", format_time(&tmp),
+      sched_getcpu(), getpid());
     CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %d, %d, cudaLaunch, call\n", format_time(&tmp),
-        sched_getcpu(), getpid());
-    exec(arguments.data_size);
+    printf("%s, %d, %d, cudaLaunch, call\n", format_time(&tmp), sched_getcpu(),
+      getpid());
+    Exec(arguments.data_size, thread_data);
     CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %d, %d, cudaLaunch, return\n", format_time(&tmp),
-        sched_getcpu(), getpid());
-
+    printf("%s, %d, %d, cudaLaunch, return\n", format_time(&tmp),
+      sched_getcpu(), getpid());
     CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %d, %d, cudaMemcpy, call, deviceToHost\n",
-        format_time(&tmp), sched_getcpu(), getpid());
-    copyout();
+    printf("%s, %d, %d, cudaMemcpy, call, deviceToHost\n", format_time(&tmp),
+      sched_getcpu(), getpid());
+    CopyOut(thread_data);
     CURRENT_TIME(&tmp);
-    fprintf(stdout, "%s, %d, %d, cudaMemcpy, return, deviceToHost\n",
-        format_time(&tmp), sched_getcpu(), getpid());
-
+    printf("%s, %d, %d, cudaMemcpy, return, deviceToHost\n", format_time(&tmp),
+      sched_getcpu(), getpid());
     CURRENT_TIME(&end);
-    fprintf(stdout, "%s, %d, %d, end\n", format_time(&end),
-        sched_getcpu(), getpid());
-
-    // Sleep for small amount of time to emulate periodicity.
+    printf("%s, %d, %d, end\n", format_time(&end), sched_getcpu(), getpid());
     struct timespec delay;
     delay.tv_sec = 0;
     delay.tv_nsec = arguments.randsleep * (rand() % FIFTEEN_MS_IN_NS);
     nanosleep(&delay, NULL);
   }
-  freeGPU();
-  freeCPU();
-  finish();
+  FreeGPU(thread_data);
+  FreeCPU(thread_data);
+  Finish(thread_data);
   exit(EXIT_SUCCESS);
 }

@@ -34,7 +34,7 @@ size_t vector_bytes;
 int v_threadsPerBlock;
 int v_blocksPerGrid;
 
-extern "C" void init(int sync_level) {
+void* Initialize(int sync_level) {
   /*
    * The sync_level parameter is an integer that indicates the desired level of
    * synchronization used by the GPU driver (values defined below).  The
@@ -58,25 +58,12 @@ extern "C" void init(int sync_level) {
 
   // Set up zero copy
   cudaSetDeviceFlags(cudaDeviceMapHost);
-
-  // Follow convention and initialize CUDA/GPU
-  // used here to invoke initialization of GPU locking
-  cudaFree(0);
-
-  // Pin code
-  if(!mlockall(MCL_CURRENT | MCL_FUTURE)) {
-    fprintf(stderr, "Failed to lock code pages.\n");
-    exit(EXIT_FAILURE);
-  }
- 
-  // Set the device context 
   cudaSetDevice(0);
-
-  // create a user defined stream
   cudaStreamCreate(&stream);
+  return NULL;
 }
 
-extern "C" void mallocCPU(int numElements) {
+void MallocCPU(int numElements, void *thread_data) {
   vector_bytes = numElements * sizeof(float);
 
   // Host allocations in pinned memory
@@ -110,7 +97,7 @@ extern "C" void mallocCPU(int numElements) {
   v_blocksPerGrid = (numElements + v_threadsPerBlock - 1) / v_threadsPerBlock;
 }
 
-extern "C" void mallocGPU(int numElements) {
+void MallocGPU(int numElements, void *thread_data) {
   // Allocate the device input vector A
   cudaError_t err = cudaHostGetDevicePointer((void **)&dA, (void *) hA, 0);
   if (err != cudaSuccess) {
@@ -137,11 +124,10 @@ extern "C" void mallocGPU(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-extern "C" void copyin(int numElements) {
-  // NOP
+void CopyIn(int numElements, void *thread_data) {
 }
 
-extern "C" void exec(int numElements) {
+void Exec(int numElements, void *thread_data) {
   cudaError_t err = cudaSuccess;
 
   // Launch the Vector Add CUDA Kernel
@@ -158,22 +144,19 @@ extern "C" void exec(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-extern "C" void copyout() {
-  // NOP
+void CopyOut(void *thread_data) {
 }
 
-extern "C" void freeGPU() {
-  // NOP
+void FreeGPU(void *thread_data) {
 }
 
-extern "C" void freeCPU() {
-  // Free host memory that was pinned
+void FreeCPU(void *thread_data) {
   cudaFreeHost(hA);
   cudaFreeHost(hB);
   cudaFreeHost(hC);
 }
- 
-extern "C" void finish() {
+
+void Finish(void *thread_data) {
   // clean up the user allocated stream
   cudaStreamSynchronize(stream);
   cudaStreamDestroy(stream);

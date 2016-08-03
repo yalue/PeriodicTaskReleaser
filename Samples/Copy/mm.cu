@@ -129,7 +129,7 @@ dim3 dimsB;
 dim3 threads;
 dim3 grid;
 
-void init(int sync_level) {
+void* Initialize(int sync_level) {
   /*
    * The sync_level parameter is an integer that indicates the desired level of
    * synchronization used by the GPU driver (values defined below).  The
@@ -150,24 +150,12 @@ void init(int sync_level) {
       fprintf(stderr, "Unknown sync level: %d\n", sync_level);
       break;
   }
-  // Follow convention and initialize CUDA/GPU
-  // used here to invoke initialization of GPU locking
-  cudaFree(0);
-
-  // pin code
-  if(!mlockall(MCL_CURRENT | MCL_FUTURE)) {
-    fprintf(stderr, "Failed to lock code pages.\n");
-    exit(EXIT_FAILURE);
-  }
-
-  // Set the device context 
   cudaSetDevice(0);
-  
-  // create a user defined stream
   cudaStreamCreate(&stream);
+  return NULL;
 }
 
-void mallocCPU(int numElements) {
+void MallocCPU(int numElements, void *thread_data) {
   int matrix_size = sqrt(numElements) * sqrt(numElements);
 
   // Allocate host memory for matrices A and B
@@ -205,7 +193,7 @@ void mallocCPU(int numElements) {
   grid = dim3(ceil(dimsB.x / (float) threads.x), ceil(dimsA.y / (float) threads.y));
 }
 
-void mallocGPU(int numElements) {
+void MallocGPU(int numElements, void *thread_data) {
   int matrix_size = sqrt(numElements) * sqrt(numElements);
 
   // Allocate device memory
@@ -226,7 +214,7 @@ void mallocGPU(int numElements) {
   }
 }
 
-void copyin(int numElements) {
+void CopyIn(int numElements, void *thread_data) {
   // copy the A and B blocks from Host to Device memory
   // these calls are asynchronous so only the lock of CE can be handled in the wrapper
   cudaError_t err = cudaMemcpyAsync(dA, hA, mem_size, cudaMemcpyHostToDevice, stream);
@@ -246,7 +234,7 @@ void copyin(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-void exec(int numElements) {
+void Exec(int numElements, void *thread_data) {
   cudaError_t err = cudaSuccess;
   matrixMulCUDA<16><<< grid, threads, 0, stream>>>(dC, dA, dB, dimsA.x, dimsB.x);
   err = cudaGetLastError();
@@ -259,7 +247,7 @@ void exec(int numElements) {
   cudaStreamSynchronize(stream);
 }
 
-void copyout() {
+void CopyOut(void *thread_data) {
   // copy the result memory from Device to Host memory
   // this call is asynchronous so only the lock of CE can be handled in the wrapper
   cudaError_t err = cudaMemcpyAsync(hC, dC, mem_size, cudaMemcpyDeviceToHost, stream);
@@ -272,7 +260,7 @@ void copyout() {
   cudaStreamSynchronize(stream);
 }
 
-void freeGPU() {
+void FreeGPU(void *thread_data) {
   // Free device global memory for inputs A and B and result C
   cudaError_t err = cudaFree(dA);
   if (err != cudaSuccess) {
@@ -293,14 +281,14 @@ void freeGPU() {
   }
 }
 
-void freeCPU() {
+void FreeCPU(void *thread_data) {
   // Free host memory that was pinned
   cudaFreeHost(hA);
   cudaFreeHost(hB);
   cudaFreeHost(hC);
 }
 
-void finish() {
+void Finish(void *thread_data) {
   // clean up the user allocated stream
   cudaStreamSynchronize(stream);
   cudaStreamDestroy(stream);

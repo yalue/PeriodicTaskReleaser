@@ -1,16 +1,31 @@
 #!/bin/bash
 
 # Configuration
-duration=$((10)) # 10 minutes
+
+# The amount of time each benchmark runs, in seconds
+duration=$((10))
+
+# The size, in *number of elements*, of the vector or matrices used for the
+# vector add or matrix multiply benchmarks.
 size=$((2^22))
+
+# Omit this to remove the random sleep between benchmark iterations.
 randsleep="--randsleep"
+
+# This can be "c", "zc" or "c zc" to select whether to run copy, zero-copy, or
+# both versions of each benchmark.
 copy="c"
 
 args="$copy $duration $size $randsleep"
 
+# Benchmarks are invoked using run_benchmark_parse.sh. The first line must
+# contain the total number of benchmarks in each scenario, and the following
+# lines contain the scenarios themselves. Currently, only the 4x stereo
+# disparity benchmark will run.
 echo "4/
 4_sd/" | ./run_benchmark_parse.sh $args
 
+# Uncomment this block to run all benchmarks.
 : <<'END'
 # Experiments
 echo "1/
