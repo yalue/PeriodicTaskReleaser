@@ -102,17 +102,16 @@ int main(int argc, char** argv) {
   // initialize end time to experiment start time.
   // this copies the primitive fields tv_sec and tv_nsec.
   end = experiment_start;
-  if (!mlockall(MCL_CURRENT | MCL_FUTURE)) {
-    printf("Error: failed locking pages in memory.\n");
-    exit(1);
-  }
   thread_data = Initialize(arguments.sync);
   if (!thread_data) {
     printf("Benchmark does not support multithreading.\n");
   }
   MallocCPU(arguments.data_size, thread_data);
   MallocGPU(arguments.data_size, thread_data);
-
+  if (!mlockall(MCL_CURRENT | MCL_FUTURE)) {
+    printf("Error: failed locking pages in memory.\n");
+    exit(1);
+  }
   for (i = 0; i < arguments.iteration_count; i++) {
     if (elapsed_sec(&experiment_start, &end) > arguments.experiment_duration) {
       break;
