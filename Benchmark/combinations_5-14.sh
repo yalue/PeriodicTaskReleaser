@@ -20,10 +20,10 @@ args="$copy $duration $size $randsleep"
 
 # Benchmarks are invoked using run_benchmark_parse.sh. The first line must
 # contain the total number of benchmarks in each scenario, and the following
-# lines contain the scenarios themselves. Currently, only the 4x stereo
-# disparity benchmark will run.
+# lines contain the scenarios themselves. Currently, only the 4x convbench
+# benchmark will run.
 echo "4/
-4_sd/" | ./run_benchmark_parse.sh $args
+4_convbench/" | ./run_benchmark_parse.sh $args
 
 # Uncomment this block to run all benchmarks.
 : <<'END'

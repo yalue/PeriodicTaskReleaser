@@ -1,7 +1,7 @@
 SAMPLE_DIR = ../Samples
 UTIL_DIR = ../util
 INC = -I$(UTIL_DIR) -I$(SAMPLE_DIR)
-HOSTARCH = armv7l
+HOSTARCH = aarch64
 
 all: benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_sd_c \
 		benchmark_sd_zc benchmark_fasthog_c benchmark_fasthog_zc benchmark_va_cpu \
