@@ -1,4 +1,5 @@
 INC = -I. -I/usr/local/cuda/samples/common/inc
+NVCC_FLAGS := -arch=sm_53 --cudart shared -g --ptxas-options=-v
 
 all: va_c.o mm_c.o va_zc.o mm_zc.o sd_c.o sd_zc.o fasthog_c.a fasthog_zc.a \
 	convbench_c.a convbench_zc.a va_cpu.o mm_cpu.o
@@ -10,22 +11,22 @@ mm_cpu.o: CPU/mm.c
 	gcc -c CPU/mm.c -o mm_cpu.o
 
 va_c.o: Copy/va.cu
-	nvcc -c Copy/va.cu -o va_c.o --cudart shared -g --ptxas-options=-v
+	nvcc -c Copy/va.cu -o va_c.o $(NVCC_FLAGS)
 
 mm_c.o: Copy/mm.cu
-	nvcc -c Copy/mm.cu -o mm_c.o --cudart shared -g --ptxas-options=-v
+	nvcc -c Copy/mm.cu -o mm_c.o $(NVCC_FLAGS)
 
 sd_c.o: Copy/StereoDisparity/sd.cu
-	nvcc -c Copy/StereoDisparity/sd.cu -o sd_c.o --cudart shared -g --ptxas-options=-v $(INC)
+	nvcc -c Copy/StereoDisparity/sd.cu -o sd_c.o $(NVCC_FLAGS) $(INC)
 
 sd_zc.o: ZeroCopy/StereoDisparity/sd.cu
-	nvcc -c ZeroCopy/StereoDisparity/sd.cu -o sd_zc.o --cudart shared -g --ptxas-options=-v $(INC)
+	nvcc -c ZeroCopy/StereoDisparity/sd.cu -o sd_zc.o $(NVCC_FLAGS) $(INC)
 
 va_zc.o: ZeroCopy/va.cu
-	nvcc -c ZeroCopy/va.cu -o va_zc.o --cudart shared -g --ptxas-options=-v
+	nvcc -c ZeroCopy/va.cu -o va_zc.o $(NVCC_FLAGS)
 
 mm_zc.o: ZeroCopy/mm.cu
-	nvcc -c ZeroCopy/mm.cu -o mm_zc.o --cudart shared -g --ptxas-options=-v
+	nvcc -c ZeroCopy/mm.cu -o mm_zc.o $(NVCC_FLAGS)
 
 fasthog_c.a:
 	cd Copy/FastHOG && make fasthog.a

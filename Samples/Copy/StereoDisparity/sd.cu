@@ -38,6 +38,7 @@
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -61,15 +62,18 @@ typedef struct {
   unsigned int *h_odata;
   unsigned char *h_img0;
   unsigned char *h_img1;
+  uint64_t *h_block_times;
   // Device memory
   unsigned int *d_odata;
   unsigned int *d_img0;
   unsigned int *d_img1;
+  uint64_t *d_block_times;
   // Kernel execution parameters
   unsigned int w, h;
   size_t offset;
   dim3 numThreads;
   dim3 numBlocks;
+  size_t block_times_size;
   unsigned int numData;
   unsigned int memSize;
   cudaChannelFormatDesc ca_desc0;
@@ -113,7 +117,11 @@ inline bool loadPPM4ub(const char *file, unsigned char **data,
   return true;
 }
 
-
+// Converts a 64-bit count of nanoseconds to a floating-point number of
+// seconds.
+static double ConvertToSeconds(uint64_t nanoseconds) {
+  return ((double) nanoseconds) / 1e9;
+}
 
 extern "C" void* Initialize(int sync_level) {
    switch (sync_level) {
@@ -172,6 +180,10 @@ extern "C" void MallocCPU(int numElements, void *thread_data) {
     g->numThreads.y));
   g->numData = g->w * g->h;
   g->memSize = sizeof(int) * g->numData;
+  // We hold space for a start and end time of each block.
+  g->block_times_size = g->numBlocks.x * g->numBlocks.y * 2 * sizeof(uint64_t);
+
+  checkCudaErrors(cudaMallocHost(&(g->h_block_times), g->block_times_size));
 
   // allocate memory for the result on host side
   checkCudaErrors(cudaMallocHost(&(g->h_odata), g->memSize));
@@ -197,6 +209,7 @@ extern "C" void MallocGPU(int unused, void *thread_data) {
   checkCudaErrors(cudaMalloc(&(g->d_odata), g->memSize));
   checkCudaErrors(cudaMalloc(&(g->d_img0), g->memSize));
   checkCudaErrors(cudaMalloc(&(g->d_img1), g->memSize));
+  checkCudaErrors(cudaMalloc(&(g->d_block_times), g->block_times_size));
   checkCudaErrors(cudaBindTexture2D(&(g->offset), tex2Dleft, g->d_img0,
     g->ca_desc0, g->w, g->h, g->w * 4));
   assert(g->offset == 0);
@@ -219,27 +232,43 @@ extern "C" void CopyIn(int unused, void *thread_data) {
 
 extern "C" void Exec(int unused, void *thread_data) {
   stereoDisparityKernel<<<g->numBlocks, g->numThreads, 0, g->stream>>>(
-    g->d_img0, g->d_img1, g->d_odata, g->w, g->h, g->minDisp, g->maxDisp);
+    g->d_img0, g->d_img1, g->d_odata, g->w, g->h, g->minDisp, g->maxDisp,
+    g->d_block_times);
   cudaStreamSynchronize(g->stream);
   getLastCudaError("Kernel execution failed");
 }
 
 extern "C" void CopyOut(void *thread_data) {
+  int total_blocks = g->numBlocks.x * g->numBlocks.y;
+  uint64_t start, end;
+  double total_time = 0;
   checkCudaErrors(cudaMemcpyAsync(g->h_odata, g->d_odata, g->memSize,
     cudaMemcpyDeviceToHost, g->stream));
+  checkCudaErrors(cudaMemcpyAsync(g->h_block_times, g->d_block_times,
+    g->block_times_size, cudaMemcpyDeviceToHost, g->stream));
   cudaStreamSynchronize(g->stream);
+  printf("Block times (s * 1e5): ");
+  for (int i = 0; i < total_blocks; i++) {
+    start = g->h_block_times[i * 2];
+    end = g->h_block_times[i * 2 + 1];
+    total_time = ConvertToSeconds(end - start);
+    printf("%.02f ", total_time * 1e5);
+  }
+  printf("\n");
 }
 
 extern "C" void FreeGPU(void *thread_data) {
   checkCudaErrors(cudaFree(g->d_odata));
   checkCudaErrors(cudaFree(g->d_img0));
   checkCudaErrors(cudaFree(g->d_img1));
+  checkCudaErrors(cudaFree(g->d_block_times));
 }
 
 extern "C" void FreeCPU(void *thread_data) {
   cudaFreeHost(g->h_odata);
   cudaFreeHost(g->h_img0);
   cudaFreeHost(g->h_img1);
+  cudaFreeHost(g->h_block_times);
 }
 
 extern "C" void Finish(void *thread_data) {

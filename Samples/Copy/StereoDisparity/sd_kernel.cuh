@@ -52,6 +52,13 @@ __device__ unsigned int __usad4(unsigned int A, unsigned int B, unsigned int C=0
     return result;
 }
 
+// Returns the value of CUDA's global nanosecond timer.
+static __device__ __inline__ uint64_t GlobalTimer64(void) {
+  uint64_t to_return;
+  asm volatile("mov.u64 %0, %%globaltimer;" : "=l"(to_return));
+  return to_return;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 //! Simple stereo disparity kernel to test atomic instructions
 //! Algorithm Explanation:
@@ -71,7 +78,11 @@ __device__ unsigned int __usad4(unsigned int A, unsigned int B, unsigned int C=0
 ////////////////////////////////////////////////////////////////////////////////
 __global__ void stereoDisparityKernel(unsigned int *g_img0,
   unsigned int *g_img1, unsigned int *g_odata, int w, int h, int minDisparity,
-  int maxDisparity) {
+  int maxDisparity, uint64_t *block_times) {
+    if ((threadIdx.x == 0) && (threadIdx.y == 0)) {
+      block_times[(blockIdx.y * gridDim.x + blockIdx.x) * 2] = GlobalTimer64();
+    }
+    __syncthreads();
     // access thread id
     const int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     const int tidy = blockDim.y * blockIdx.y + threadIdx.y;
@@ -173,6 +184,10 @@ __global__ void stereoDisparityKernel(unsigned int *g_img0,
     if (tidy < h && tidx < w)
     {
         g_odata[tidy*w + tidx] = bestDisparity;
+    }
+    __syncthreads();
+    if ((threadIdx.x == 0) && (threadIdx.y == 0)) {
+      block_times[(blockIdx.y * gridDim.x + blockIdx.x) * 2 + 1] = GlobalTimer64();
     }
 }
 
