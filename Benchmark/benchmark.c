@@ -42,6 +42,10 @@ struct arguments {
   int randsleep;
 };
 
+static double TimespecSeconds(struct timespec *ts) {
+  return ((double) ts->tv_sec) + (((double) ts->tv_nsec) / 1e9);
+}
+
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   struct arguments *arguments = state->input;
   int iterations, duration;
@@ -85,7 +89,9 @@ static struct argp argp = {options, parse_opt, args_doc, doc};
 
 int main(int argc, char** argv) {
   struct arguments arguments;
-  struct timespec start, end, experiment_start, tmp;
+  struct timespec start, end, experiment_start, tmp, delay;
+  double total_start, total_end, copy_in_start, copy_in_end, kernel_start,
+    kernel_end, copy_out_start, copy_out_end;
   int i;
   void *thread_data;
   // Default values
@@ -96,8 +102,8 @@ int main(int argc, char** argv) {
   arguments.randsleep = DEFAULT_RAND_SLEEP;
   // Parse args
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
-
-  printf("Timestamp, CPU core, PID, function, call/ret, arg\n");
+  printf("Program %s, PID %d\n", argv[0], (int) getpid());
+  printf("Copy In, Kernel, Copy out, Total (s)\n");
   CURRENT_TIME(&experiment_start);
   // initialize end time to experiment start time.
   // this copies the primitive fields tv_sec and tv_nsec.
@@ -117,32 +123,22 @@ int main(int argc, char** argv) {
       break;
     }
     CURRENT_TIME(&start);
-    printf("%s, %d, %d, start\n", format_time(&start), sched_getcpu(),
-      getpid());
-    CURRENT_TIME(&tmp);
-    printf("%s, %d, %d, cudaMemcpy, call, hostToDevice\n", format_time(&tmp),
-      sched_getcpu(), getpid());
+    total_start = TimespecSeconds(&start);
+    copy_in_start = total_start;
     CopyIn(arguments.data_size, thread_data);
     CURRENT_TIME(&tmp);
-    printf("%s, %d, %d, cudaMemcpy, return, hostToDevice\n", format_time(&tmp),
-      sched_getcpu(), getpid());
-    CURRENT_TIME(&tmp);
-    printf("%s, %d, %d, cudaLaunch, call\n", format_time(&tmp), sched_getcpu(),
-      getpid());
+    copy_in_end = TimespecSeconds(&tmp);
+    kernel_start = copy_in_end;
     Exec(arguments.data_size, thread_data);
     CURRENT_TIME(&tmp);
-    printf("%s, %d, %d, cudaLaunch, return\n", format_time(&tmp),
-      sched_getcpu(), getpid());
-    CURRENT_TIME(&tmp);
-    printf("%s, %d, %d, cudaMemcpy, call, deviceToHost\n", format_time(&tmp),
-      sched_getcpu(), getpid());
+    kernel_end = TimespecSeconds(&tmp);
+    copy_out_start = kernel_end;
     CopyOut(thread_data);
-    CURRENT_TIME(&tmp);
-    printf("%s, %d, %d, cudaMemcpy, return, deviceToHost\n", format_time(&tmp),
-      sched_getcpu(), getpid());
     CURRENT_TIME(&end);
-    printf("%s, %d, %d, end\n", format_time(&end), sched_getcpu(), getpid());
-    struct timespec delay;
+    copy_out_end = TimespecSeconds(&end);
+    total_end = copy_out_end;
+    printf("%f, %f, %f, %f\n", copy_in_end - copy_in_start, kernel_end -
+      kernel_start, copy_out_end - copy_out_start, total_end - total_start);
     delay.tv_sec = 0;
     delay.tv_nsec = arguments.randsleep * (rand() % FIFTEEN_MS_IN_NS);
     nanosleep(&delay, NULL);

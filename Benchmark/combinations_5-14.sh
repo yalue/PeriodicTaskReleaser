@@ -3,7 +3,7 @@
 # Configuration
 
 # The amount of time each benchmark runs, in seconds
-duration=$((10))
+duration=$((10 * 60))
 
 # The size, in *number of elements*, of the vector or matrices used for the
 # vector add or matrix multiply benchmarks.
@@ -20,10 +20,16 @@ args="$copy $duration $size $randsleep"
 
 # Benchmarks are invoked using run_benchmark_parse.sh. The first line must
 # contain the total number of benchmarks in each scenario, and the following
-# lines contain the scenarios themselves. Currently, only the 4x convbench
-# benchmark will run.
+# lines contain the scenarios themselves.
+echo "1/
+1_sd/" | ./run_benchmark_parse.sh $args
+echo "2/
+2_sd/" | ./run_benchmark_parse.sh $args
+echo "3/
+3_sd/" | ./run_benchmark_parse.sh $args
 echo "4/
-4_convbench/" | ./run_benchmark_parse.sh $args
+4_sd/" | ./run_benchmark_parse.sh $args
+
 
 # Uncomment this block to run all benchmarks.
 : <<'END'
