@@ -252,7 +252,7 @@ extern "C" void CopyOut(void *thread_data) {
     start = g->h_block_times[i * 2];
     end = g->h_block_times[i * 2 + 1];
     total_time = ConvertToSeconds(end - start);
-    printf("%.02f ", total_time * 1e5);
+    printf("%.04f ", total_time * 1e5);
   }
   printf("\n");
 }
