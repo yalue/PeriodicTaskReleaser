@@ -3,7 +3,7 @@
 # Configuration
 
 # The amount of time each benchmark runs, in seconds
-duration=$((3 * 60))
+duration=$((10 * 60))
 
 # The size, in *number of elements*, of the vector or matrices used for the
 # vector add or matrix multiply benchmarks.

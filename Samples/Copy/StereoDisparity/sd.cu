@@ -178,6 +178,8 @@ extern "C" void MallocCPU(int numElements, void *thread_data) {
   g->numThreads = dim3(blockSize_x, blockSize_y, 1);
   g->numBlocks = dim3(iDivUp(g->w, g->numThreads.x), iDivUp(g->h,
     g->numThreads.y));
+  printf("Number of blocks: (%dx%d)\n", (int) g->numBlocks.x,
+    (int) g->numBlocks.y);
   g->numData = g->w * g->h;
   g->memSize = sizeof(int) * g->numData;
   // We hold space for a start and end time of each block.
@@ -239,14 +241,15 @@ extern "C" void Exec(int unused, void *thread_data) {
 }
 
 extern "C" void CopyOut(void *thread_data) {
-  int total_blocks = g->numBlocks.x * g->numBlocks.y;
-  uint64_t start, end;
-  double total_time = 0;
   checkCudaErrors(cudaMemcpyAsync(g->h_odata, g->d_odata, g->memSize,
     cudaMemcpyDeviceToHost, g->stream));
   checkCudaErrors(cudaMemcpyAsync(g->h_block_times, g->d_block_times,
     g->block_times_size, cudaMemcpyDeviceToHost, g->stream));
   cudaStreamSynchronize(g->stream);
+  /*
+  int total_blocks = g->numBlocks.x * g->numBlocks.y;
+  uint64_t start, end;
+  double total_time = 0;
   printf("Block times (s * 1e5): ");
   for (int i = 0; i < total_blocks; i++) {
     start = g->h_block_times[i * 2];
@@ -255,6 +258,7 @@ extern "C" void CopyOut(void *thread_data) {
     printf("%.04f ", total_time * 1e5);
   }
   printf("\n");
+  */
 }
 
 extern "C" void FreeGPU(void *thread_data) {
