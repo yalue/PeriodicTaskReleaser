@@ -2,10 +2,8 @@
 .PHONY: all clean
 
 NVCC := nvcc -ccbin g++
-NVCCFLAGS := --cudart shared -g --ptxas-options=-v
-INCLUDES := -I/home/ubuntu/NVIDIA_CUDA-6.5_Samples/common/inc -I.
-INCLUDES += -I/home/ubuntu/samples/NVIDIA_CUDA-6.5_Samples/common/inc
-INCLUDES += -I/home/ubuntu/NVIDIA_CUDA_7.0/common/inc
+NVCCFLAGS := --cudart shared -g --ptxas-options=-v -arch=sm_53
+INCLUDES := -I/usr/local/cuda/samples/common/inc -I.
 
 all: fasthog.a
 

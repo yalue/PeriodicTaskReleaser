@@ -21,6 +21,8 @@ args="$copy $duration $size $randsleep"
 # Benchmarks are invoked using run_benchmark_parse.sh. The first line must
 # contain the total number of benchmarks in each scenario, and the following
 # lines contain the scenarios themselves.
+
+# These example lines test co-scheduling up to 4 instances of stereo disparity.
 echo "1/
 1_sd/" | ./run_benchmark_parse.sh $args
 echo "2/

@@ -1,7 +1,7 @@
 SAMPLE_DIR = ../Samples
 UTIL_DIR = ../util
 INC = -I$(UTIL_DIR) -I$(SAMPLE_DIR)
-HOSTARCH = aarch64
+HOSTARCH = $(shell uname -m)
 NVCC_FLAGS := -arch=sm_53 --cudart shared -g --ptxas-options=-v
 
 all: benchmark_va_c benchmark_va_zc benchmark_mm_c benchmark_mm_zc benchmark_sd_c \
