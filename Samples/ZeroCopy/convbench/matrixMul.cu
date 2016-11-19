@@ -80,7 +80,7 @@ float occupancyCalc(const void* func, int block_size) {
 
 	//printf("b: %d, r: %d, s: %d\n", b_blocksPerSM, r_blocksPerSM, s_blocksPerSM);
 	int numWarps = numBlocks * b_warpsPerBlock;
-	printf("%d,%d,%d,%d,", attr.numRegs, attr.sharedSizeBytes, numBlocks, numWarps);
+	printf("%d,%d,%d,%d,", attr.numRegs, (int) (attr.sharedSizeBytes), numBlocks, numWarps);
 	float occupancy = (float)numWarps / maxWarpsPerSM;
 
 	return occupancy;
