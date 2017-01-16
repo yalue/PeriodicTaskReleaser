@@ -35,7 +35,7 @@ do
       then
         ./run_experiment.sh ./benchmark_${tok}_cpu $duration $size $out/$line/${tok}_cpu $randsleep $cpu_core &
       else
-        ./run_experiment.sh ./benchmark_${tok}_${copy} $duration $size $out/$line/$tok  $randsleep $cpu_core &
+        ./run_experiment.sh ./benchmark_${tok}_${copy} $duration $size $out/$line/$tok_1  $randsleep $cpu_core &
       fi
       cpu_core=$(($cpu_core + 1))
       cpu_core=$(($cpu_core % 4))
@@ -47,7 +47,7 @@ do
         then
           ./run_experiment_no_log.sh ./benchmark_${tok}_cpu $duration $size $out/$line/${tok}_cpu $randsleep $cpu_core &
         else
-          ./run_experiment_no_log.sh ./benchmark_${tok}_${copy} $duration $size $out/$line/$tok $randsleep $cpu_core &
+          ./run_experiment.sh ./benchmark_${tok}_${copy} $duration $size $out/$line/$tok_${i} $randsleep $cpu_core &
         fi
         cpu_core=$(($cpu_core + 1))
         cpu_core=$(($cpu_core % 4))

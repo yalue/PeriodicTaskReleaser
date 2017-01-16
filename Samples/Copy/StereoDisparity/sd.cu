@@ -246,19 +246,17 @@ extern "C" void CopyOut(void *thread_data) {
   checkCudaErrors(cudaMemcpyAsync(g->h_block_times, g->d_block_times,
     g->block_times_size, cudaMemcpyDeviceToHost, g->stream));
   cudaStreamSynchronize(g->stream);
-  /*
+
+  // Comment out the following lines to stop printing block times.
   int total_blocks = g->numBlocks.x * g->numBlocks.y;
-  uint64_t start, end;
-  double total_time = 0;
+  double start, end;
   printf("Block times (s * 1e5): ");
   for (int i = 0; i < total_blocks; i++) {
-    start = g->h_block_times[i * 2];
-    end = g->h_block_times[i * 2 + 1];
-    total_time = ConvertToSeconds(end - start);
-    printf("%.04f ", total_time * 1e5);
+    start = ConvertToSeconds(g->h_block_times[i * 2]) * 1e5;
+    end = ConvertToSeconds(g->h_block_times[i * 2 + 1]) * 1e5;
+    printf("%.04f,%.04f ", start, end);
   }
   printf("\n");
-  */
 }
 
 extern "C" void FreeGPU(void *thread_data) {
