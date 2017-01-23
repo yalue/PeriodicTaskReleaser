@@ -1,8 +1,7 @@
 INC = -I. -I/usr/local/cuda/samples/common/inc
 NVCC_FLAGS := -arch=sm_53 --cudart shared -g --ptxas-options=-v
 
-all: va_c.o mm_c.o va_zc.o mm_zc.o sd_c.o sd_zc.o fasthog_c.a fasthog_zc.a \
-	convbench_c.a convbench_zc.a va_cpu.o mm_cpu.o
+all: va_c.o mm_c.o sd_c.o fasthog_c.a convbench_c.a va_cpu.o mm_cpu.o
 
 va_cpu.o: CPU/va.c
 	gcc -c CPU/va.c -o va_cpu.o
@@ -19,34 +18,15 @@ mm_c.o: Copy/mm.cu
 sd_c.o: Copy/StereoDisparity/sd.cu
 	nvcc -c Copy/StereoDisparity/sd.cu -o sd_c.o $(NVCC_FLAGS) $(INC)
 
-sd_zc.o: ZeroCopy/StereoDisparity/sd.cu
-	nvcc -c ZeroCopy/StereoDisparity/sd.cu -o sd_zc.o $(NVCC_FLAGS) $(INC)
-
-va_zc.o: ZeroCopy/va.cu
-	nvcc -c ZeroCopy/va.cu -o va_zc.o $(NVCC_FLAGS)
-
-mm_zc.o: ZeroCopy/mm.cu
-	nvcc -c ZeroCopy/mm.cu -o mm_zc.o $(NVCC_FLAGS)
-
 fasthog_c.a:
 	cd Copy/FastHOG && make fasthog.a
 	cp Copy/FastHOG/fasthog.a fasthog_c.a
-
-fasthog_zc.a:
-	cd ZeroCopy/FastHOG && make fasthog.a
-	cp ZeroCopy/FastHOG/fasthog.a fasthog_zc.a
 
 convbench_c.a:
 	cd Copy/convbench && make convbench.a
 	cp Copy/convbench/convbench.a convbench_c.a
 
-convbench_zc.a:
-	cd ZeroCopy/convbench && make convbench.a
-	cp ZeroCopy/convbench/convbench.a convbench_zc.a
-
 clean:
 	cd Copy/FastHOG && make clean
-	cd ZeroCopy/FastHOG && make clean
 	cd Copy/convbench && make clean
-	cd ZeroCopy/convbench && make clean
-	rm -f *.o fasthog_c.a fasthog_zc.a convbench_c.a convbench_zc.a
+	rm -f *.o fasthog_c.a convbench_c.a
