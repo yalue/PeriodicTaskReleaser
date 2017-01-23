@@ -8,14 +8,13 @@
 #include <time.h>
 #include <unistd.h>
 #include "gpusync.h"
-#include "util.h"
 
 // 30 minutes
 #define DEFAULT_EXPERIMENT_DURATION (1800)
 #define DEFAULT_ITERATION_COUNT (0x7fffffff)
 #define DEFAULT_DATA_SIZE 1024
 #define DEFAULT_SYNC (2)
-#define DEFAULT_RAND_SLEEP (0)
+#define DEFAULT_RAND_SLEEP (1)
 #define FIFTEEN_MS_IN_NS (15000000)
 
 const char *argp_program_version = "v1";
@@ -42,8 +41,15 @@ struct arguments {
   int randsleep;
 };
 
-static double TimespecSeconds(struct timespec *ts) {
-  return ((double) ts->tv_sec) + (((double) ts->tv_nsec) / 1e9);
+// Returns the current system time in seconds. Exits if an error occurs while
+// getting the time.
+static double CurrentSeconds(void) {
+  struct timespec ts;
+  if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+    printf("Error getting time.\n");
+    exit(1);
+  }
+  return ((double) ts.tv_sec) + (((double) ts.tv_nsec) / 1e9);
 }
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -87,27 +93,22 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   struct arguments arguments;
-  struct timespec start, end, experiment_start, tmp, delay;
-  double total_start, total_end, copy_in_start, copy_in_end, kernel_start,
-    kernel_end, copy_out_start, copy_out_end;
+  double experiment_start, iteration_start, exec_start, copy_out_start,
+    iteration_end;
   int i;
   void *thread_data;
-  // Default values
+  struct timespec delay;
+  delay.tv_sec = 0;
   arguments.data_size = DEFAULT_DATA_SIZE;
   arguments.experiment_duration = ((uint64_t) DEFAULT_EXPERIMENT_DURATION);
   arguments.iteration_count = (uint64_t) DEFAULT_ITERATION_COUNT;
   arguments.sync = DEFAULT_SYNC;
   arguments.randsleep = DEFAULT_RAND_SLEEP;
-  // Parse args
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
-  printf("Program %s, PID %d\n", argv[0], (int) getpid());
-  printf("Copy In, Kernel, Copy out, Total (s)\n");
-  CURRENT_TIME(&experiment_start);
-  // initialize end time to experiment start time.
-  // this copies the primitive fields tv_sec and tv_nsec.
-  end = experiment_start;
+
+  // Do initialization and allocation outside of the main loop.
   thread_data = Initialize(arguments.sync);
   if (!thread_data) {
     printf("Benchmark does not support multithreading.\n");
@@ -118,30 +119,30 @@ int main(int argc, char** argv) {
     printf("Error: failed locking pages in memory.\n");
     exit(1);
   }
+
+  // Iterate until one of the exit conditions is met.
+  printf("Program %s, PID %d\n", argv[0], (int) getpid());
+  printf("Copy in start, Kernel start, Copy out start, Copy out end (s)\n");
+  experiment_start = CurrentSeconds();
+  iteration_end = experiment_start;
   for (i = 0; i < arguments.iteration_count; i++) {
-    if (elapsed_sec(&experiment_start, &end) > arguments.experiment_duration) {
+    if ((iteration_end - experiment_start) >
+      (double) arguments.experiment_duration) {
       break;
     }
-    CURRENT_TIME(&start);
-    total_start = TimespecSeconds(&start);
-    copy_in_start = total_start;
+    iteration_start = CurrentSeconds();
     CopyIn(arguments.data_size, thread_data);
-    CURRENT_TIME(&tmp);
-    copy_in_end = TimespecSeconds(&tmp);
-    kernel_start = copy_in_end;
+    exec_start = CurrentSeconds();
     Exec(arguments.data_size, thread_data);
-    CURRENT_TIME(&tmp);
-    kernel_end = TimespecSeconds(&tmp);
-    copy_out_start = kernel_end;
+    copy_out_start = CurrentSeconds();
     CopyOut(thread_data);
-    CURRENT_TIME(&end);
-    copy_out_end = TimespecSeconds(&end);
-    total_end = copy_out_end;
-    printf("%f, %f, %f, %f\n", copy_in_end - copy_in_start, kernel_end -
-      kernel_start, copy_out_end - copy_out_start, total_end - total_start);
-    delay.tv_sec = 0;
-    delay.tv_nsec = arguments.randsleep * (rand() % FIFTEEN_MS_IN_NS);
-    nanosleep(&delay, NULL);
+    iteration_end = CurrentSeconds();
+    printf("%f, %f, %f, %f\n", iteration_start, exec_start, copy_out_start,
+      iteration_end);
+    if (arguments.randsleep) {
+      delay.tv_nsec = arguments.randsleep * (rand() % FIFTEEN_MS_IN_NS);
+      nanosleep(&delay, NULL);
+    }
   }
   FreeGPU(thread_data);
   FreeCPU(thread_data);

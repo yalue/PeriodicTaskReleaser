@@ -126,13 +126,13 @@ static double ConvertToSeconds(uint64_t nanoseconds) {
 extern "C" void* Initialize(int sync_level) {
    switch (sync_level) {
    case 0:
-     cudaSetDeviceFlags(cudaDeviceScheduleSpin);
+     checkCudaErrors(cudaSetDeviceFlags(cudaDeviceScheduleSpin));
      break;
    case 1:
-     cudaSetDeviceFlags(cudaDeviceScheduleYield);
+     checkCudaErrors(cudaSetDeviceFlags(cudaDeviceScheduleYield));
      break;
    case 2:
-     cudaSetDeviceFlags(cudaDeviceBlockingSync);
+     checkCudaErrors(cudaSetDeviceFlags(cudaDeviceBlockingSync));
      break;
    default:
      fprintf(stderr, "Unknown sync level: %d\n", sync_level);
@@ -153,8 +153,8 @@ extern "C" void* Initialize(int sync_level) {
     fprintf(stderr, "Failed to lock code pages.\n");
     exit(EXIT_FAILURE);
   }
-  cudaSetDevice(0);
-  cudaStreamCreate(&(g->stream));
+  checkCudaErrors(cudaSetDevice(0));
+  checkCudaErrors(cudaStreamCreate(&(g->stream)));
   return NULL;
 }
 

@@ -3,7 +3,7 @@
 # Configuration
 
 # The amount of time each benchmark runs, in seconds
-duration=$((15))
+duration=$((10))
 
 # The size, in *number of elements*, of the vector or matrices used for the
 # vector add or matrix multiply benchmarks.
@@ -12,8 +12,8 @@ size=$((2^22))
 # Omit this to remove the random sleep between benchmark iterations.
 randsleep="--randsleep"
 
-# This can be "c", "zc" or "c zc" to select whether to run copy, zero-copy, or
-# both versions of each benchmark.
+# This must remain set to "c" until all old traces of "zc" stuff can be purged
+# from our scripts.
 copy="c"
 
 args="$copy $duration $size $randsleep"
