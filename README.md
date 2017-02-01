@@ -44,7 +44,7 @@ When benchmarks have finished running, output files will be generated in the
 number of simultaneous benchmarks, the specific collection of benchmarks, and
 then each individual benchmark. For example, if `run_benchmarks.rb` contains
 the line `run_scenario(["mm", "mm", "va"])`, then the following directory
-structure will exist:
+structure will be created:
 
 ```
 results/
