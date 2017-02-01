@@ -7,6 +7,8 @@ About
 This is a collection of CUDA programs intended to measure interference between
 GPU processes. It was created as part of ongoing research in real-time systems
 at UNC Chapel Hill. Paper: http://cs.unc.edu/~anderson/papers/ospert16.pdf .
+The benchmarks here were originally designed to run on the NVIDIA Jetson
+computers, but should work on any Linux system with CUDA.
 
 Abbreviations
 -------------
@@ -37,7 +39,8 @@ Co-scheduling testing
 The behavior of multiple benchmarks running together can be tested by running
 the `Benchmark/run_benchmarks.rb` ruby script. To run a collection of
 benchmarks simultaneously, just add calls to the `run_scenario(..)` function at
-the bottom of the script.
+the bottom of the script and run `ruby run_benchmarks.rb`. This requires ruby
+to be installed, but a recent version shouldn't be necessary.
 
 When benchmarks have finished running, output files will be generated in the
 `Benchmark/results/` directory. This will contain subdirectories indicating the
