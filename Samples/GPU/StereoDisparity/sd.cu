@@ -52,8 +52,8 @@ extern "C" {
 #include "sd_kernel.cuh"
 
 // Relative path to images
-static const char fname0[] = "../Samples/Copy/StereoDisparity/data/stereo.im0.640x533.ppm";
-static const char fname1[] = "../Samples/Copy/StereoDisparity/data/stereo.im1.640x533.ppm";
+static const char fname0[] = "../Samples/GPU/StereoDisparity/data/stereo.im0.640x533.ppm";
+static const char fname1[] = "../Samples/GPU/StereoDisparity/data/stereo.im1.640x533.ppm";
 
 // Holds per-thread state for this algorithm.
 typedef struct {
@@ -124,6 +124,7 @@ static double ConvertToSeconds(uint64_t nanoseconds) {
 }
 
 extern "C" void* Initialize(int sync_level) {
+   /*
    switch (sync_level) {
    case 0:
      checkCudaErrors(cudaSetDeviceFlags(cudaDeviceScheduleSpin));
@@ -138,6 +139,7 @@ extern "C" void* Initialize(int sync_level) {
      fprintf(stderr, "Unknown sync level: %d\n", sync_level);
      break;
   }
+  */
   g = (ThreadContext*) malloc(sizeof(ThreadContext));
   if (!g) {
     printf("Failed to allocate Thread Context.\n");
@@ -145,15 +147,12 @@ extern "C" void* Initialize(int sync_level) {
   }
   g->minDisp = -16;
   g->maxDisp = 0;
-  // Follow convention and initialize CUDA/GPU
-  // used here to invoke initialization of GPU locking
-  cudaFree(0);
   // Pin code
   if(!mlockall(MCL_CURRENT | MCL_FUTURE)) {
     fprintf(stderr, "Failed to lock code pages.\n");
     exit(EXIT_FAILURE);
   }
-  checkCudaErrors(cudaSetDevice(0));
+  //checkCudaErrors(cudaSetDevice(0));
   checkCudaErrors(cudaStreamCreate(&(g->stream)));
   return NULL;
 }

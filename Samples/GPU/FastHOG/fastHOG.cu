@@ -19,7 +19,7 @@ extern "C" {
 HOGImage image;
 cudaStream_t stream;
 
-char file_name[] = "../Samples/Copy/FastHOG/Files/Images/testImage.bmp";
+char file_name[] = "../Samples/GPU/FastHOG/Files/Images/testImage.bmp";
 
 void* Initialize(int sync_level) {
   switch (sync_level) {

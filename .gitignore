@@ -6,5 +6,6 @@ Samples/convbench_*
 *fasthog.a
 *convbench.a
 Benchmark/benchmark_*
+Benchmark/results/
 Benchmark/c/
 Benchmark/zc/
