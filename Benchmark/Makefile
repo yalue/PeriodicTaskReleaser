@@ -1,7 +1,7 @@
 SAMPLE_DIR = ../Samples
 INC = -I$(SAMPLE_DIR)
 HOSTARCH = $(shell uname -m)
-NVCC_FLAGS := -arch=sm_53 --cudart shared -g --ptxas-options=-v
+NVCC_FLAGS := -arch=sm_50 --cudart shared -g --ptxas-options=-v
 
 all: benchmark_va benchmark_mm benchmark_sd benchmark_fasthog \
 	benchmark_va_cpu benchmark_mm_cpu benchmark_convbench

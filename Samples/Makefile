@@ -1,5 +1,5 @@
 INC = -I. -I/usr/local/cuda/samples/common/inc
-NVCC_FLAGS := -arch=sm_53 --cudart shared -g --ptxas-options=-v
+NVCC_FLAGS := -arch=sm_50 --cudart shared -g --ptxas-options=-v
 
 all: va.o mm.o sd.o fasthog.a convbench.a va_cpu.o mm_cpu.o
 

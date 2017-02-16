@@ -247,6 +247,7 @@ extern "C" void CopyOut(void *thread_data) {
   cudaStreamSynchronize(g->stream);
 
   // Comment out the following lines to stop printing block times.
+  /*
   int total_blocks = g->numBlocks.x * g->numBlocks.y;
   double start, end;
   printf("Block times (s * 1e5): ");
@@ -256,6 +257,7 @@ extern "C" void CopyOut(void *thread_data) {
     printf("%.04f,%.04f ", start, end);
   }
   printf("\n");
+  */
 }
 
 extern "C" void FreeGPU(void *thread_data) {
