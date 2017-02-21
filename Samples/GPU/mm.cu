@@ -123,20 +123,21 @@ cudaStream_t stream;
 float *hA, *hB, *hC;
 float *dA, *dB, *dC;
 unsigned int mem_size;
+int matrix_size;
 
 dim3 dimsA;
 dim3 dimsB;
 dim3 threads;
 dim3 grid;
 
-void* Initialize(int sync_level) {
+void* Initialize(GPUParameters *parameters) {
   /*
    * The sync_level parameter is an integer that indicates the desired level of
    * synchronization used by the GPU driver (values defined below).  The
    * specified level is used in cudaSetDeviceFlags() to set the level
    * prior to initialization.
    */
-  switch (sync_level) {
+  switch (parameters->sync_level) {
     case 0:
       cudaSetDeviceFlags(cudaDeviceScheduleSpin);
       break;
@@ -147,17 +148,17 @@ void* Initialize(int sync_level) {
       cudaSetDeviceFlags(cudaDeviceBlockingSync);
       break;
     default:
-      fprintf(stderr, "Unknown sync level: %d\n", sync_level);
+      fprintf(stderr, "Unknown sync level: %d\n", parameters->sync_level);
       break;
   }
+  matrix_size = sqrt(parameters->element_count) * sqrt(
+    parameters->element_count);
   cudaSetDevice(0);
   cudaStreamCreate(&stream);
   return NULL;
 }
 
-void MallocCPU(int numElements, void *thread_data) {
-  int matrix_size = sqrt(numElements) * sqrt(numElements);
-
+void MallocCPU(void *thread_data) {
   // Allocate host memory for matrices A and B
   mem_size = sizeof(float) * matrix_size;
   cudaError_t err = cudaMallocHost((void **) &hA, mem_size);
@@ -193,9 +194,7 @@ void MallocCPU(int numElements, void *thread_data) {
   grid = dim3(ceil(dimsB.x / (float) threads.x), ceil(dimsA.y / (float) threads.y));
 }
 
-void MallocGPU(int numElements, void *thread_data) {
-  int matrix_size = sqrt(numElements) * sqrt(numElements);
-
+void MallocGPU(void *thread_data) {
   // Allocate device memory
   cudaError_t err = cudaMalloc((void **) &dA, mem_size);
   if (err != cudaSuccess) {
@@ -214,7 +213,7 @@ void MallocGPU(int numElements, void *thread_data) {
   }
 }
 
-void CopyIn(int numElements, void *thread_data) {
+void CopyIn(void *thread_data) {
   // copy the A and B blocks from Host to Device memory
   // these calls are asynchronous so only the lock of CE can be handled in the wrapper
   cudaError_t err = cudaMemcpyAsync(dA, hA, mem_size, cudaMemcpyHostToDevice, stream);
@@ -234,7 +233,7 @@ void CopyIn(int numElements, void *thread_data) {
   cudaStreamSynchronize(stream);
 }
 
-void Exec(int numElements, void *thread_data) {
+void Exec(void *thread_data) {
   cudaError_t err = cudaSuccess;
   matrixMulCUDA<16><<< grid, threads, 0, stream>>>(dC, dA, dB, dimsA.x, dimsB.x);
   err = cudaGetLastError();

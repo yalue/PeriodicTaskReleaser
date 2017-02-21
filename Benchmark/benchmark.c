@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <time.h>
 #include <unistd.h>
@@ -29,6 +30,7 @@ static struct argp_option options[] = {
   {0, 0, 0, 0, "Experiment duration specifiers. If both are used, whichever limit is reached first will terminate the experiment."},
   {"iterations", 'n', "iteration_count", 0, "Specifies the maximum number of iterations of the benchmark program. Defaults to infinity."},
   {"duration", 'd', "experiment_duration", 0, "Specifies the duration the experiment should run in seconds. Defaults to 30 minutes."},
+  {"show_blocks", 'b', 0, OPTION_ARG_OPTIONAL, "If provided, the benchmark will emit a list of individual block times during the CopyOut phase."},
   {0},
 };
 
@@ -36,7 +38,7 @@ struct arguments {
   int data_size;
   uint64_t experiment_duration;
   uint32_t iteration_count;
-  int operation;
+  int show_block_times;
   int sync;
   int randsleep;
 };
@@ -80,10 +82,13 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     }
     break;
   case 'y':
-    arguments->sync= atoi(arg);
+    arguments->sync = atoi(arg);
     if (arguments->sync < 0 || arguments->sync > 2) {
       return EINVAL;
     }
+    break;
+  case 'b':
+    arguments->show_block_times = 1;
     break;
   default:
     return ARGP_ERR_UNKNOWN;
@@ -95,6 +100,7 @@ static struct argp argp = {options, parse_opt, args_doc, doc};
 
 int main(int argc, char **argv) {
   struct arguments arguments;
+  GPUParameters benchmark_parameters;
   double experiment_start, iteration_start, exec_start, copy_out_start,
     iteration_end;
   int i;
@@ -108,13 +114,20 @@ int main(int argc, char **argv) {
   arguments.randsleep = DEFAULT_RAND_SLEEP;
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
+  // Copy the command-line arguments to the parameters to actually pass the
+  // benchmark.
+  memset(&benchmark_parameters, 0, sizeof(benchmark_parameters));
+  benchmark_parameters.sync_level = arguments.sync;
+  benchmark_parameters.element_count = arguments.data_size;
+  benchmark_parameters.show_block_times = arguments.show_block_times;
+
   // Do initialization and allocation outside of the main loop.
-  thread_data = Initialize(arguments.sync);
+  thread_data = Initialize(&benchmark_parameters);
   if (!thread_data) {
     printf("Benchmark does not support multithreading.\n");
   }
-  MallocCPU(arguments.data_size, thread_data);
-  MallocGPU(arguments.data_size, thread_data);
+  MallocCPU(thread_data);
+  MallocGPU(thread_data);
   if (!mlockall(MCL_CURRENT | MCL_FUTURE)) {
     printf("Error: failed locking pages in memory.\n");
     exit(1);
@@ -131,9 +144,9 @@ int main(int argc, char **argv) {
       break;
     }
     iteration_start = CurrentSeconds();
-    CopyIn(arguments.data_size, thread_data);
+    CopyIn(thread_data);
     exec_start = CurrentSeconds();
-    Exec(arguments.data_size, thread_data);
+    Exec(thread_data);
     copy_out_start = CurrentSeconds();
     CopyOut(thread_data);
     iteration_end = CurrentSeconds();

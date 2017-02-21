@@ -28,16 +28,17 @@ __global__ void
 typedef struct {
   float *hA, *hB, *hC;
   float *dA, *dB, *dC;
+  int element_count;
   size_t vector_bytes;
   int v_threadsPerBlock;
   int v_blocksPerGrid;
   cudaStream_t stream;
 } ThreadContext;
 
-void* Initialize(int sync_level) {
+void* Initialize(GPUParameters *parameters) {
   ThreadContext *g = NULL;
   cudaError_t e;
-  switch (sync_level) {
+  switch (parameters->sync_level) {
     case 0:
       cudaSetDeviceFlags(cudaDeviceScheduleSpin);
       break;
@@ -48,7 +49,7 @@ void* Initialize(int sync_level) {
       cudaSetDeviceFlags(cudaDeviceBlockingSync);
       break;
     default:
-      fprintf(stderr, "Unknown sync level: %d\n", sync_level);
+      fprintf(stderr, "Unknown sync level: %d\n", parameters->sync_level);
       break;
   }
   e = cudaMallocHost(&g, sizeof(ThreadContext));
@@ -58,12 +59,13 @@ void* Initialize(int sync_level) {
   }
   cudaSetDevice(0);
   cudaStreamCreate(&(g->stream));
+  g->element_count = parameters->element_count;
+  g->vector_bytes = g->element_count * sizeof(float);
   return g;
 }
 
-void MallocCPU(int numElements, void *thread_data) {
+void MallocCPU(void *thread_data) {
   ThreadContext *g = (ThreadContext*) thread_data;
-  g->vector_bytes = numElements * sizeof(float);
 
   // Host allocations in pinned memory
   // Allocate the host input vector A
@@ -88,15 +90,15 @@ void MallocCPU(int numElements, void *thread_data) {
   }
 
   // Initialize the host input vectors
-  for (int i = 0; i < numElements; i++) {
+  for (int i = 0; i < g->element_count; i++) {
     g->hA[i] = rand() / (float) RAND_MAX;
     g->hB[i] = rand() / (float) RAND_MAX;
   }
   g->v_threadsPerBlock = 256;
-  g->v_blocksPerGrid = (numElements + g->v_threadsPerBlock - 1) / g->v_threadsPerBlock;
+  g->v_blocksPerGrid = (g->element_count + g->v_threadsPerBlock - 1) / g->v_threadsPerBlock;
 }
 
-void MallocGPU(int numElements, void *thread_data) {
+void MallocGPU(void *thread_data) {
   ThreadContext *g = (ThreadContext*) thread_data;
   // Allocate the device input vector A
   cudaError_t err = cudaMalloc(&(g->dA), g->vector_bytes);
@@ -120,7 +122,7 @@ void MallocGPU(int numElements, void *thread_data) {
   }
 }
 
-void CopyIn(int numElements, void *thread_data) {
+void CopyIn(void *thread_data) {
   ThreadContext *g = (ThreadContext*) thread_data;
   // copy the A and B vectors from Host to Device memory
   // these calls are asynchronous so only the lock of CE can be handled in the wrapper
@@ -141,13 +143,13 @@ void CopyIn(int numElements, void *thread_data) {
   cudaStreamSynchronize(g->stream);
 }
 
-void Exec(int numElements, void *thread_data) {
+void Exec(void *thread_data) {
   ThreadContext *g = (ThreadContext*) thread_data;
   cudaError_t err = cudaSuccess;
 
   // Launch the Vector Add CUDA Kernel
   // lock of EE is handled in wrapper for cudaLaunch()
-  vectorAdd<<<g->v_blocksPerGrid, g->v_threadsPerBlock, 0, g->stream>>>(g->dA, g->dB, g->dC, numElements);
+  vectorAdd<<<g->v_blocksPerGrid, g->v_threadsPerBlock, 0, g->stream>>>(g->dA, g->dB, g->dC, g->element_count);
 
   err = cudaGetLastError();
   if (err != cudaSuccess) {

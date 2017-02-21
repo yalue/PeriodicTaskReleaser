@@ -5,22 +5,35 @@
 // value may be ignored by benchmarks which still use global state and don't
 // support threading (in which case, Initialize will return NULL).
 
+// Contains parameters that can be passed to individual benchmarks. Not all
+// fields in this structure will be used by every benchmark.
+typedef struct {
+  // Specifies how the CUDA device is configured to synchronize with the host
+  // process.
+  int sync_level;
+  // Contains the number of elements to use for some benchmarks.
+  int element_count;
+  // If this is nonzero, show individual block times for benchmarks that
+  // support it.
+  int show_block_times;
+} GPUParameters;
+
 // Initializes the benchmark. Returns a pointer to a thread-local data
 // structure. If the benchmark doesn't support threading, this returns NULL
 // (and the NULL value should be passed to the remaining functions, too).
-void* Initialize(int sync_level);
+void *Initialize(GPUParameters *parameters);
 
 // Allocates CPU memory in the thread data..
-void MallocCPU(int numElements, void *thread_data);
+void MallocCPU(void *thread_data);
 
 // Allocates GPU memory in the thread data.
-void MallocGPU(int numElements, void *thread_data);
+void MallocGPU(void *thread_data);
 
 // Copies data to the GPU.
-void CopyIn(int numElements, void *thread_data);
+void CopyIn(void *thread_data);
 
 // Executes GPU kernel computations.
-void Exec(int numElements, void *thread_data);
+void Exec(void *thread_data);
 
 // Copies output data from the GPU.
 void CopyOut(void *thread_data);

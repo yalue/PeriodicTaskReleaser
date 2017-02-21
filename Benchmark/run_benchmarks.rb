@@ -58,3 +58,4 @@ def run_scenario(benchmarks, log_all = true)
 end
 
 run_scenario(["va", "mm", "fasthog", "sd"], false)
+run_scenario(["va", "mm", "mm"])

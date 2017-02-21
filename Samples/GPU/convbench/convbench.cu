@@ -57,8 +57,8 @@ void random_float(float *ptr, int size) {
   }
 }
 
-void* Initialize(int sync_level) {
-  switch (sync_level) {
+void* Initialize(GPUParameters *parameters) {
+  switch (parameters->sync_level) {
   case 0:
     cudaSetDeviceFlags(cudaDeviceScheduleSpin);
     break;
@@ -69,7 +69,7 @@ void* Initialize(int sync_level) {
     cudaSetDeviceFlags(cudaDeviceBlockingSync);
     break;
   default:
-    printf("Unknown sync level: %d\n", sync_level);
+    printf("Unknown sync level: %d\n", parameters->sync_level);
     break;
   }
   if (cudaSetDevice(0) != cudaSuccess) {
@@ -111,7 +111,7 @@ void* Initialize(int sync_level) {
   return NULL;
 }
 
-void MallocCPU(int numElements, void *thread_data) {
+void MallocCPU(void *thread_data) {
   checkCudaErrors(cudaMallocHost(&h_image, max_image_size * sizeof(float)));
   checkCudaErrors(cudaMallocHost(&h_filter, max_filter_size * sizeof(float)));
   checkCudaErrors(cudaMallocHost(&h_result, max_result_size * sizeof(float)));
@@ -119,7 +119,7 @@ void MallocCPU(int numElements, void *thread_data) {
   random_float(h_filter, max_filter_size);
 }
 
-void MallocGPU(int numElements, void *thread_data) {
+void MallocGPU(void *thread_data) {
   checkCudaErrors(cudaMalloc(&d_image, max_image_size * sizeof(float)));
   checkCudaErrors(cudaMalloc(&d_filter, max_filter_size * sizeof(float)));
   checkCudaErrors(cudaMalloc(&d_image_col, max_image_col_size *
@@ -127,7 +127,7 @@ void MallocGPU(int numElements, void *thread_data) {
   checkCudaErrors(cudaMalloc(&d_result, max_result_size * sizeof(float)));
 }
 
-void CopyIn(int numElements, void *thread_data) {
+void CopyIn(void *thread_data) {
   checkCudaErrors(cudaMemcpyAsync(d_image, h_image, max_image_size *
     sizeof(float), cudaMemcpyHostToDevice, stream));
   checkCudaErrors(cudaMemcpyAsync(d_filter, h_filter, max_filter_size *
@@ -135,7 +135,7 @@ void CopyIn(int numElements, void *thread_data) {
   cudaStreamSynchronize(stream);
 }
 
-void Exec(int numElements, void *thread_data) {
+void Exec(void *thread_data) {
   for (int i = 0; i < sizeof(info) / sizeof(im2col_info); i++) {
     im2col_info curr = info[i];
     int M = curr.num_filters;

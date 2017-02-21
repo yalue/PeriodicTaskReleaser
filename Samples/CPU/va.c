@@ -7,6 +7,7 @@
 typedef struct {
   float *vector_a, *vector_b, *result_vector;
   int vector_bytes;
+  int element_count;
 } ThreadData;
 
 // Sets vector c = a + b
@@ -33,18 +34,19 @@ static void PrintVector(float *v, int length) {
   printf("\n");
 }
 
-void* Initialize(int sync_level) {
+void* Initialize(GPUParameters *parameters) {
   ThreadData *g = malloc(sizeof(ThreadData));
   if (!g) {
     printf("Error allocating thread data.\n");
     exit(1);
   }
+  g->element_count = parameters->element_count;
+  g->vector_bytes = parameters->element_count * sizeof(float);
   return g;
 }
 
-void MallocCPU(int numElements, void *thread_data) {
+void MallocCPU(void *thread_data) {
   ThreadData *g = (ThreadData *) thread_data;
-  g->vector_bytes = numElements * sizeof(float);
   g->vector_a = (float *) malloc(g->vector_bytes);
   if (!g->vector_a) {
     printf("Failed allocating vector A.\n");
@@ -62,18 +64,18 @@ void MallocCPU(int numElements, void *thread_data) {
   }
 }
 
-void MallocGPU(int numElements, void *thread_data) {
+void MallocGPU(void *thread_data) {
 }
 
-void CopyIn(int numElements, void *thread_data) {
+void CopyIn(void *thread_data) {
   ThreadData *g = (ThreadData *) thread_data;
-  RandomFill(g->vector_a, numElements);
-  RandomFill(g->vector_b, numElements);
+  RandomFill(g->vector_a, g->element_count);
+  RandomFill(g->vector_b, g->element_count);
 }
 
-void Exec(int numElements, void *thread_data) {
+void Exec(void *thread_data) {
   ThreadData *g = (ThreadData *) thread_data;
-  Add(g->vector_a, g->vector_b, g->result_vector, numElements);
+  Add(g->vector_a, g->vector_b, g->result_vector, g->element_count);
 }
 
 void CopyOut(void *thread_data) {

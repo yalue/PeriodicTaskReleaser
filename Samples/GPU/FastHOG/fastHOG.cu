@@ -21,8 +21,8 @@ cudaStream_t stream;
 
 char file_name[] = "../Samples/GPU/FastHOG/Files/Images/testImage.bmp";
 
-void* Initialize(int sync_level) {
-  switch (sync_level) {
+void* Initialize(GPUParameters *parameters) {
+  switch (parameters->sync_level) {
   case 0:
     cudaSetDeviceFlags(cudaDeviceScheduleSpin);
     break;
@@ -33,7 +33,7 @@ void* Initialize(int sync_level) {
     cudaSetDeviceFlags(cudaDeviceBlockingSync);
     break;
   default:
-    printf("Unknown sync level: %d\n", sync_level);
+    printf("Unknown sync level: %d\n", parameters->sync_level);
     break;
   }
   if (!HOGImageFile(file_name, &image)) {
@@ -53,19 +53,19 @@ void* Initialize(int sync_level) {
   return NULL;
 }
 
-void MallocCPU(int numElements, void *thread_data) {
+void MallocCPU(void *thread_data) {
   HostAllocHOGEngineDeviceMemory();
 }
 
-void MallocGPU(int numElements, void *thread_data) {
+void MallocGPU(void *thread_data) {
   DeviceAllocHOGEngineDeviceMemory();
 }
 
-void CopyIn(int numElements, void *thread_data) {
+void CopyIn(void *thread_data) {
   CopyInHOGEngineDevice();
 }
 
-void Exec(int numElements, void *thread_data) {
+void Exec(void *thread_data) {
   // There are still memcpys to the device in HOGScale and HOGPadding--they
   // may require more work to get rid of because they seem to rely on variables
   // determined during the execution phase.

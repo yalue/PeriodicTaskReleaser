@@ -7,6 +7,7 @@
 
 float *matrix_a, *matrix_b, *result_matrix;
 unsigned int mem_size, matrix_size, a_width, b_width;
+int element_count;
 
 static void ConstantInit(float *data, int size, float val) {
   int i;
@@ -43,13 +44,14 @@ static void Multiply(float *a, float *b, float *c, int a_width, int b_width) {
   }
 }
 
-void* Initialize(int sync_level) {
+void* Initialize(GPUParameters *parameters) {
+  element_count = parameters->element_count;
   return NULL;
 }
 
-void MallocCPU(int numElements, void *unused) {
-  a_width = sqrt(numElements);
-  b_width = sqrt(numElements);
+void MallocCPU(void *unused) {
+  a_width = sqrt(element_count);
+  b_width = sqrt(element_count);
   matrix_size = a_width * a_width;
   mem_size = sizeof(float) * matrix_size;
   matrix_a = (float *) malloc(mem_size);
@@ -69,16 +71,16 @@ void MallocCPU(int numElements, void *unused) {
   }
 }
 
-void MallocGPU(int numElements, void *unused) {
+void MallocGPU(void *unused) {
 }
 
-void CopyIn(int numElements, void *unused) {
+void CopyIn(void *unused) {
   // Re-initialize memory in place of copying in for this demo.
   ConstantInit(matrix_a, matrix_size, 1.0f);
   ConstantInit(matrix_b, matrix_size, 0.01f);
 }
 
-void Exec(int numElements, void *unused) {
+void Exec(void *unused) {
   Multiply(matrix_a, matrix_b, result_matrix, a_width, b_width);
 }
 

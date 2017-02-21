@@ -81,6 +81,8 @@ typedef struct {
   // Search parameters
   int minDisp;
   int maxDisp;
+  // Set to 1 if block times should be printed during CopyOut()
+  int show_block_times;
 } ThreadContext;
 
 // Used for work-in-progress migration of this task to one that doesn't rely on
@@ -123,23 +125,7 @@ static double ConvertToSeconds(uint64_t nanoseconds) {
   return ((double) nanoseconds) / 1e9;
 }
 
-extern "C" void* Initialize(int sync_level) {
-   /*
-   switch (sync_level) {
-   case 0:
-     checkCudaErrors(cudaSetDeviceFlags(cudaDeviceScheduleSpin));
-     break;
-   case 1:
-     checkCudaErrors(cudaSetDeviceFlags(cudaDeviceScheduleYield));
-     break;
-   case 2:
-     checkCudaErrors(cudaSetDeviceFlags(cudaDeviceBlockingSync));
-     break;
-   default:
-     fprintf(stderr, "Unknown sync level: %d\n", sync_level);
-     break;
-  }
-  */
+void* Initialize(GPUParameters *parameters) {
   g = (ThreadContext*) malloc(sizeof(ThreadContext));
   if (!g) {
     printf("Failed to allocate Thread Context.\n");
@@ -147,6 +133,7 @@ extern "C" void* Initialize(int sync_level) {
   }
   g->minDisp = -16;
   g->maxDisp = 0;
+  g->show_block_times = parameters->show_block_times;
   // Pin code
   if(!mlockall(MCL_CURRENT | MCL_FUTURE)) {
     fprintf(stderr, "Failed to lock code pages.\n");
@@ -158,7 +145,7 @@ extern "C" void* Initialize(int sync_level) {
 }
 
 
-extern "C" void MallocCPU(int numElements, void *thread_data) {
+void MallocCPU(void *thread_data) {
   // Load image data
   // functions allocate memory for the images on host side
   // initialize pointers to NULL to request lib call to allocate as needed
@@ -205,7 +192,7 @@ extern "C" void MallocCPU(int numElements, void *thread_data) {
 }
 
 
-extern "C" void MallocGPU(int unused, void *thread_data) {
+void MallocGPU(void *thread_data) {
   // allocate device memory for inputs and result
   checkCudaErrors(cudaMalloc(&(g->d_odata), g->memSize));
   checkCudaErrors(cudaMalloc(&(g->d_img0), g->memSize));
@@ -219,7 +206,7 @@ extern "C" void MallocGPU(int unused, void *thread_data) {
   assert(g->offset == 0);
 }
 
-extern "C" void CopyIn(int unused, void *thread_data) {
+void CopyIn(void *thread_data) {
   // copy host memory with images to device
   checkCudaErrors(cudaMemcpyAsync(g->d_img0, g->h_img0, g->memSize,
     cudaMemcpyHostToDevice, g->stream));
@@ -231,7 +218,7 @@ extern "C" void CopyIn(int unused, void *thread_data) {
   cudaStreamSynchronize(g->stream);
 }
 
-extern "C" void Exec(int unused, void *thread_data) {
+void Exec(void *thread_data) {
   stereoDisparityKernel<<<g->numBlocks, g->numThreads, 0, g->stream>>>(
     g->d_img0, g->d_img1, g->d_odata, g->w, g->h, g->minDisp, g->maxDisp,
     g->d_block_times);
@@ -239,42 +226,42 @@ extern "C" void Exec(int unused, void *thread_data) {
   getLastCudaError("Kernel execution failed");
 }
 
-extern "C" void CopyOut(void *thread_data) {
+void CopyOut(void *thread_data) {
+  int total_blocks, i;
+  double start, end;
   checkCudaErrors(cudaMemcpyAsync(g->h_odata, g->d_odata, g->memSize,
     cudaMemcpyDeviceToHost, g->stream));
   checkCudaErrors(cudaMemcpyAsync(g->h_block_times, g->d_block_times,
     g->block_times_size, cudaMemcpyDeviceToHost, g->stream));
   cudaStreamSynchronize(g->stream);
 
-  // Comment out the following lines to stop printing block times.
-  /*
-  int total_blocks = g->numBlocks.x * g->numBlocks.y;
-  double start, end;
-  printf("Block times (s * 1e5): ");
-  for (int i = 0; i < total_blocks; i++) {
-    start = ConvertToSeconds(g->h_block_times[i * 2]) * 1e5;
-    end = ConvertToSeconds(g->h_block_times[i * 2 + 1]) * 1e5;
-    printf("%.04f,%.04f ", start, end);
+  if (g->show_block_times) {
+    total_blocks = g->numBlocks.x * g->numBlocks.y;
+    printf("Block times (s * 1e5): ");
+    for (i = 0; i < total_blocks; i++) {
+      start = ConvertToSeconds(g->h_block_times[i * 2]) * 1e5;
+      end = ConvertToSeconds(g->h_block_times[i * 2 + 1]) * 1e5;
+      printf("%.04f,%.04f ", start, end);
+    }
+    printf("\n");
   }
-  printf("\n");
-  */
 }
 
-extern "C" void FreeGPU(void *thread_data) {
+void FreeGPU(void *thread_data) {
   checkCudaErrors(cudaFree(g->d_odata));
   checkCudaErrors(cudaFree(g->d_img0));
   checkCudaErrors(cudaFree(g->d_img1));
   checkCudaErrors(cudaFree(g->d_block_times));
 }
 
-extern "C" void FreeCPU(void *thread_data) {
+void FreeCPU(void *thread_data) {
   cudaFreeHost(g->h_odata);
   cudaFreeHost(g->h_img0);
   cudaFreeHost(g->h_img1);
   cudaFreeHost(g->h_block_times);
 }
 
-extern "C" void Finish(void *thread_data) {
+void Finish(void *thread_data) {
   cudaStreamSynchronize(g->stream);
   cudaStreamDestroy(g->stream);
   checkCudaErrors(cudaDeviceReset());
