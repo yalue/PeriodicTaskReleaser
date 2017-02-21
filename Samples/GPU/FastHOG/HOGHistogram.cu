@@ -3,7 +3,9 @@
 #include <math.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "cutil.h"
+#include <helper_cuda.h>
+#include <helper_functions.h>
+
 #include "HOGEngine.h"
 #include "HOGUtils.h"
 #include "HOGHistogram.h"
@@ -37,7 +39,7 @@ void HostAllocHOGHistogramMemory(void) {
   int cellSizeY = initVars.cellSizeY;
   int blockSizeX = initVars.blockSizeX;
   int blockSizeY = initVars.blockSizeY;
-  cutilSafeCall(cudaMallocHost(&hostWeights, cellSizeX * blockSizeX *
+  checkCudaErrors(cudaMallocHost(&hostWeights, cellSizeX * blockSizeX *
     cellSizeY * blockSizeY * sizeof(float)));
   for (i = 0; i < cellSizeX * blockSizeX; i++) {
     for (j = 0; j < cellSizeY * blockSizeY; j++) {
@@ -51,33 +53,33 @@ void HostAllocHOGHistogramMemory(void) {
 }
 
 void DeviceAllocHOGHistogramMemory(void) {
-  cutilSafeCall(cudaMallocArray(&gaussArray, &channelDescGauss,
+  checkCudaErrors(cudaMallocArray(&gaussArray, &channelDescGauss,
     initVars.cellSizeX * initVars.blockSizeX * initVars.cellSizeY *
     initVars.blockSizeY, 1));
 }
 
 void CopyInHOGHistogram(void) {
-  cutilSafeCall(cudaMemcpyToArrayAsync(gaussArray, 0, 0, hostWeights,
+  checkCudaErrors(cudaMemcpyToArrayAsync(gaussArray, 0, 0, hostWeights,
     sizeof(float) * initVars.cellSizeX * initVars.blockSizeX *
     initVars.cellSizeY * initVars.blockSizeY, cudaMemcpyHostToDevice, stream));
-  cutilSafeCall(cudaMemcpyToSymbolAsync(cenBound, initVars.h_cenBound, 3 *
+  checkCudaErrors(cudaMemcpyToSymbolAsync(cenBound, initVars.h_cenBound, 3 *
     sizeof(float), 0, cudaMemcpyHostToDevice, stream));
-  cutilSafeCall(cudaMemcpyToSymbolAsync(halfBin, initVars.h_halfBin, 3 *
+  checkCudaErrors(cudaMemcpyToSymbolAsync(halfBin, initVars.h_halfBin, 3 *
     sizeof(float), 0, cudaMemcpyHostToDevice, stream));
-  cutilSafeCall(cudaMemcpyToSymbolAsync(bandWidth, initVars.h_bandWidth, 3 *
+  checkCudaErrors(cudaMemcpyToSymbolAsync(bandWidth, initVars.h_bandWidth, 3 *
     sizeof(float), 0, cudaMemcpyHostToDevice, stream));
-  cutilSafeCall(cudaMemcpyToSymbolAsync(tvbin, initVars.h_tvbin, 3 *
+  checkCudaErrors(cudaMemcpyToSymbolAsync(tvbin, initVars.h_tvbin, 3 *
     sizeof(int), 0, cudaMemcpyHostToDevice, stream));
-  cutilSafeCall(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaStreamSynchronize(stream));
 }
 
 void HostFreeHOGHistogramMemory(void) {
-  cutilSafeCall(cudaFreeHost(hostWeights));
+  checkCudaErrors(cudaFreeHost(hostWeights));
   hostWeights = NULL;
 }
 
 void DeviceFreeHOGHistogramMemory(void) {
-  cutilSafeCall(cudaFreeArray(gaussArray));
+  checkCudaErrors(cudaFreeArray(gaussArray));
   gaussArray = NULL;
 }
 
@@ -434,14 +436,14 @@ void ComputeBlockHistogramsWithGauss(float2* inputImage,
   leftoverY = (height - windowSizeY - cellSizeY * (rNumberOfWindowsY - 1)) / 2;
   hThreadSize = dim3(cellSizeX, blockSizeX, blockSizeY);
   hBlockSize = dim3(rNoOfBlocksX, rNoOfBlocksY);
-  cutilSafeCall(cudaBindTextureToArray(texGauss, gaussArray, channelDescGauss));
+  checkCudaErrors(cudaBindTextureToArray(texGauss, gaussArray, channelDescGauss));
   computeBlockHistogramsWithGauss<<<hBlockSize, hThreadSize, noHistogramBins *
     blockSizeX * blockSizeY * cellSizeX * blockSizeY * blockSizeX *
     sizeof(float), stream>>>(inputImage, blockHistograms, noHistogramBins,
     cellSizeX, cellSizeY, blockSizeX, blockSizeY, leftoverX, leftoverY, width,
     height);
-  cutilSafeCall(cudaStreamSynchronize(stream));
-  cutilSafeCall(cudaUnbindTexture(texGauss));
+  checkCudaErrors(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaUnbindTexture(texGauss));
 }
 
 void NormalizeBlockHistograms(float1* blockHistograms, int noHistogramBins,
@@ -462,7 +464,7 @@ void NormalizeBlockHistograms(float1* blockHistograms, int noHistogramBins,
     noHistogramBins, rNoOfBlocksX, rNoOfBlocksY, blockSizeX, blockSizeY,
     alignedBlockDimX, alignedBlockDimY, alignedBlockDimZ, noHistogramBins *
     rNoOfCellsX, rNoOfCellsY);
-  cutilSafeCall(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaStreamSynchronize(stream));
 }
 
 __global__ void normalizeBlockHistograms(float1 *blockHistograms,

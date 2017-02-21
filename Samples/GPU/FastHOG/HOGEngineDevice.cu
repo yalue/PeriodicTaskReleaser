@@ -3,7 +3,9 @@
 #include <stdlib.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "cutil.h"
+#include <helper_cuda.h>
+#include <helper_functions.h>
+
 #include "HOGConvolution.h"
 #include "HOGEngine.h"
 #include "HOGHistogram.h"
@@ -65,35 +67,35 @@ void DeviceAllocHOGEngineDeviceMemory(void) {
   DeviceAllocHOGSVMMemory();
   DeviceAllocHOGPaddingMemory();
   DeviceAllocHOGScaleMemory();
-  cutilSafeCall(cudaMalloc(&paddedRegisteredImage, sizeof(float4) *
+  checkCudaErrors(cudaMalloc(&paddedRegisteredImage, sizeof(float4) *
     hPaddedWidth * hPaddedHeight));
   if (hUseGrayscale) {
-    cutilSafeCall(cudaMalloc(&resizedPaddedImageF1, sizeof(float1) *
+    checkCudaErrors(cudaMalloc(&resizedPaddedImageF1, sizeof(float1) *
       hPaddedWidth * hPaddedHeight));
   } else {
-    cutilSafeCall(cudaMalloc(&resizedPaddedImageF4, sizeof(float4) *
+    checkCudaErrors(cudaMalloc(&resizedPaddedImageF4, sizeof(float4) *
       hPaddedWidth * hPaddedHeight));
   }
-  cutilSafeCall(cudaMalloc(&colorGradientsF2, sizeof(float2) * hPaddedWidth *
+  checkCudaErrors(cudaMalloc(&colorGradientsF2, sizeof(float2) * hPaddedWidth *
     hPaddedHeight));
-  cutilSafeCall(cudaMalloc(&blockHistograms, sizeof(float1) * hNoOfBlocksX *
+  checkCudaErrors(cudaMalloc(&blockHistograms, sizeof(float1) * hNoOfBlocksX *
     hNoOfBlocksY * hCellSizeX * hCellSizeY * hNoHistogramBins));
-  cutilSafeCall(cudaMalloc(&cellHistograms, sizeof(float1) * hNoOfCellsX *
+  checkCudaErrors(cudaMalloc(&cellHistograms, sizeof(float1) * hNoOfCellsX *
     hNoOfCellsY * hNoHistogramBins));
-  cutilSafeCall(cudaMalloc(&svmScores, sizeof(float1) * hNumberOfWindowsX *
+  checkCudaErrors(cudaMalloc(&svmScores, sizeof(float1) * hNumberOfWindowsX *
     hNumberOfWindowsY * scaleCount));
   if (hUseGrayscale) {
-    cutilSafeCall(cudaMalloc(&outputTest1, sizeof(uchar1) * hPaddedWidth *
+    checkCudaErrors(cudaMalloc(&outputTest1, sizeof(uchar1) * hPaddedWidth *
       hPaddedHeight));
   } else {
-    cutilSafeCall(cudaMalloc(&outputTest4, sizeof(uchar4) * hPaddedWidth *
+    checkCudaErrors(cudaMalloc(&outputTest4, sizeof(uchar4) * hPaddedWidth *
       hPaddedHeight));
   }
 }
 
 void HostAllocHOGEngineDeviceMemory(void) {
   HostAllocHOGHistogramMemory();
-  cutilSafeCall(cudaMallocHost(&hResult, sizeof(float) * hNumberOfWindowsX *
+  checkCudaErrors(cudaMallocHost(&hResult, sizeof(float) * hNumberOfWindowsX *
     hNumberOfWindowsY * scaleCount));
 }
 
@@ -104,31 +106,31 @@ void CopyInHOGEngineDevice(void) {
 }
 
 void HostFreeHOGEngineDeviceMemory(void) {
-  cutilSafeCall(cudaFreeHost(hResult));
+  checkCudaErrors(cudaFreeHost(hResult));
   hResult = NULL;
   HostFreeHOGHistogramMemory();
 }
 
 void DeviceFreeHOGEngineDeviceMemory(void) {
-  cutilSafeCall(cudaFree(paddedRegisteredImage));
+  checkCudaErrors(cudaFree(paddedRegisteredImage));
   if (hUseGrayscale) {
-    cutilSafeCall(cudaFree(resizedPaddedImageF1));
+    checkCudaErrors(cudaFree(resizedPaddedImageF1));
   } else {
-    cutilSafeCall(cudaFree(resizedPaddedImageF4));
+    checkCudaErrors(cudaFree(resizedPaddedImageF4));
   }
-  cutilSafeCall(cudaFree(colorGradientsF2));
-  cutilSafeCall(cudaFree(blockHistograms));
-  cutilSafeCall(cudaFree(cellHistograms));
-  cutilSafeCall(cudaFree(svmScores));
+  checkCudaErrors(cudaFree(colorGradientsF2));
+  checkCudaErrors(cudaFree(blockHistograms));
+  checkCudaErrors(cudaFree(cellHistograms));
+  checkCudaErrors(cudaFree(svmScores));
   DeviceFreeHOGConvolutionMemory();
   DeviceFreeHOGHistogramMemory();
   DeviceFreeHOGSVMMemory();
   DeviceFreeHOGPaddingMemory();
   DeviceFreeHOGScaleMemory();
   if (hUseGrayscale) {
-    cutilSafeCall(cudaFree(outputTest1));
+    checkCudaErrors(cudaFree(outputTest1));
   } else {
-    cutilSafeCall(cudaFree(outputTest4));
+    checkCudaErrors(cudaFree(outputTest4));
   }
 }
 
@@ -245,10 +247,10 @@ void BeginHOGProcessing(unsigned char* hostImage, float minScale,
 }
 
 float* EndHOGProcessing() {
-  cutilSafeCall(cudaMemcpyAsync(hResult, svmScores, sizeof(float) *
+  checkCudaErrors(cudaMemcpyAsync(hResult, svmScores, sizeof(float) *
     scaleCount * hNumberOfWindowsX * hNumberOfWindowsY,
     cudaMemcpyDeviceToHost, stream));
-  cutilSafeCall(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaStreamSynchronize(stream));
   return hResult;
 }
 

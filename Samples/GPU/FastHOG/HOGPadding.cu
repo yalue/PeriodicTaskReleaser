@@ -3,7 +3,9 @@
 #include <math.h>
 #include <cuda_runtime.h>
 #include <cuda.h>
-#include "cutil.h"
+#include <helper_cuda.h>
+#include <helper_functions.h>
+
 #include "HOGEngine.h"
 #include "HOGUtils.h"
 #include "HOGPadding.h"
@@ -18,12 +20,12 @@ extern int avSizeX, avSizeY, marginX, marginY;
 uchar4* paddedRegisteredImageU4;
 
 void DeviceAllocHOGPaddingMemory(void) {
-  cutilSafeCall(cudaMalloc((void**) &paddedRegisteredImageU4, sizeof(uchar4) *
+  checkCudaErrors(cudaMalloc((void**) &paddedRegisteredImageU4, sizeof(uchar4) *
     hPaddedWidth * hPaddedHeight));
 }
 
 void DeviceFreeHOGPaddingMemory(void) {
-  cutilSafeCall(cudaFree(paddedRegisteredImageU4));
+  checkCudaErrors(cudaFree(paddedRegisteredImageU4));
   paddedRegisteredImageU4 = NULL;
 }
 
@@ -48,13 +50,13 @@ void PadHostImage(uchar4* registeredImage, float4 *paddedRegisteredImage,
   hPaddingSizeY = max(toaddxy, toaddyy);
   hPaddedWidth = hWidthROI + hPaddingSizeX*2;
   hPaddedHeight = hHeightROI + hPaddingSizeY*2;
-  cutilSafeCall(cudaMemsetAsync(paddedRegisteredImageU4, 0, sizeof(uchar4) *
+  checkCudaErrors(cudaMemsetAsync(paddedRegisteredImageU4, 0, sizeof(uchar4) *
     hPaddedWidth * hPaddedHeight, stream));
-  cutilSafeCall(cudaMemcpy2DAsync(paddedRegisteredImageU4 + hPaddingSizeX +
+  checkCudaErrors(cudaMemcpy2DAsync(paddedRegisteredImageU4 + hPaddingSizeX +
     hPaddingSizeY * hPaddedWidth, hPaddedWidth * sizeof(uchar4),
     registeredImage + minx + miny * hWidth, hWidth * sizeof(uchar4),
     hWidthROI * sizeof(uchar4), hHeightROI, cudaMemcpyHostToDevice, stream));
-  cutilSafeCall(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaStreamSynchronize(stream));
   Uchar4ToFloat4(paddedRegisteredImageU4, paddedRegisteredImage, hPaddedWidth,
     hPaddedHeight);
 }

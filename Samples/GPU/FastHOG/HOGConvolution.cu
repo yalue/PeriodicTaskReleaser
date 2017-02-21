@@ -3,7 +3,9 @@
 #include <stdlib.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "cutil.h"
+#include <helper_cuda.h>
+#include <helper_functions.h>
+
 #include "HOGEngine.h"
 #include "HOGUtils.h"
 #include "HOGConvolution.h"
@@ -266,9 +268,9 @@ __global__ void convolutionColumnGPU4to2 ( float2 *d_Result, float4 *d_Data,
 void DeviceAllocHOGConvolutionMemory(void) {
   int elements = convBufferElements;
   if (convUseGrayscale) {
-    cutilSafeCall(cudaMalloc(&convBuffer1, sizeof(float1) * elements));
+    checkCudaErrors(cudaMalloc(&convBuffer1, sizeof(float1) * elements));
   } else {
-    cutilSafeCall(cudaMalloc(&convBuffer4, sizeof(float4) * elements));
+    checkCudaErrors(cudaMalloc(&convBuffer4, sizeof(float4) * elements));
   }
 }
 
@@ -277,17 +279,17 @@ void CopyInHOGConvolution(void) {
   h_Kernel[0] = 1.0f;
   h_Kernel[1] = 0;
   h_Kernel[2] = -1.0f;
-  cutilSafeCall(cudaMemcpyToSymbolAsync(d_Kernel, h_Kernel, convKernelSize, 0,
+  checkCudaErrors(cudaMemcpyToSymbolAsync(d_Kernel, h_Kernel, convKernelSize, 0,
     cudaMemcpyHostToDevice, stream));
-  cutilSafeCall(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaStreamSynchronize(stream));
 }
 
 void DeviceFreeHOGConvolutionMemory(void) {
   if (convUseGrayscale) {
-    cutilSafeCall(cudaFree(convBuffer1));
+    checkCudaErrors(cudaFree(convBuffer1));
     convBuffer1 = NULL;
   } else {
-    cutilSafeCall(cudaFree(convBuffer4));
+    checkCudaErrors(cudaFree(convBuffer4));
     convBuffer4 = NULL;
   }
 }
@@ -313,21 +315,21 @@ void CloseConvolution() {}
 void ComputeColorGradients1to2(float1* inputImage, float2* outputImage) {
   convolutionRowGPU1<<<blockGridRows, threadBlockRows, 0, stream>>>(
     convBuffer1, inputImage, convWidth, convHeight);
-  cutilSafeCall(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaStreamSynchronize(stream));
   convolutionColumnGPU1to2<<<blockGridColumns, threadBlockColumns, 0,
     stream>>>(outputImage, inputImage, convBuffer1, convWidth, convHeight,
     convColumnTileWidth * threadBlockColumns.y, convWidth *
     threadBlockColumns.y);
-  cutilSafeCall(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaStreamSynchronize(stream));
 }
 
 void ComputeColorGradients4to2(float4* inputImage, float2* outputImage) {
   convolutionRowGPU4<<<blockGridRows, threadBlockRows, 0, stream>>>(
     convBuffer4, inputImage, convWidth, convHeight);
-  cutilSafeCall(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaStreamSynchronize(stream));
   convolutionColumnGPU4to2<<<blockGridColumns, threadBlockColumns, 0,
     stream>>>(outputImage, inputImage, convBuffer4, convWidth, convHeight,
     convColumnTileWidth * threadBlockColumns.y, convWidth *
     threadBlockColumns.y);
-  cutilSafeCall(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaStreamSynchronize(stream));
 }

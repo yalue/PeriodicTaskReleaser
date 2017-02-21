@@ -3,7 +3,8 @@
 #include <math.h>
 #include <cuda_runtime.h>
 #include <cuda.h>
-#include "cutil.h"
+#include <helper_cuda.h>
+#include <helper_functions.h>
 #include "HOGEngine.h"
 #include "HOGUtils.h"
 #include "HOGScale.h"
@@ -31,12 +32,12 @@ __device__ float h0(float a) { return -1.0f + w1(a) / (w0(a) + w1(a)) + 0.5f; }
 __device__ float h1(float a) { return 1.0f + w3(a) / (w2(a) + w3(a)) + 0.5f; }
 
 void DeviceAllocHOGScaleMemory(void) {
-  cutilSafeCall(cudaMallocArray(&imageArray, &channelDescDownscale,
+  checkCudaErrors(cudaMallocArray(&imageArray, &channelDescDownscale,
     hPaddedWidth, hPaddedHeight));
 }
 
 void DeviceFreeHOGScaleMemory(void) {
-  cutilSafeCall(cudaFreeArray(imageArray));
+  checkCudaErrors(cudaFreeArray(imageArray));
 }
 
 void InitScale() {
@@ -57,31 +58,31 @@ void DownscaleImage(int startScaleId, int endScaleId, int scaleId, float scale,
   hBlockSize = dim3(iDivUp(rPaddedWidth, hThreadSize.x), iDivUp(rPaddedHeight,
     hThreadSize.y));
   if (scaleId == startScaleId) {
-    cutilSafeCall(cudaMemcpyToArrayAsync(imageArray, 0, 0,
+    checkCudaErrors(cudaMemcpyToArrayAsync(imageArray, 0, 0,
       paddedRegisteredImage, sizeof(float4) * hPaddedWidth * hPaddedHeight,
       cudaMemcpyDeviceToDevice, stream));
-    cutilSafeCall(cudaStreamSynchronize(stream));
+    checkCudaErrors(cudaStreamSynchronize(stream));
   }
-  cutilSafeCall(cudaBindTextureToArray(tex, imageArray, channelDescDownscale));
+  checkCudaErrors(cudaBindTextureToArray(tex, imageArray, channelDescDownscale));
 
   if (useGrayscale) {
-    cutilSafeCall(cudaMemsetAsync(resizedPaddedImageF1, 0, hPaddedWidth *
+    checkCudaErrors(cudaMemsetAsync(resizedPaddedImageF1, 0, hPaddedWidth *
       hPaddedHeight * sizeof(float1), stream));
-    cutilSafeCall(cudaStreamSynchronize(stream));
+    checkCudaErrors(cudaStreamSynchronize(stream));
     resizeFastBicubic1<<<hBlockSize, hThreadSize, 0, stream>>>(
       resizedPaddedImageF1, paddedRegisteredImage, rPaddedWidth, rPaddedHeight,
       scale);
-    cutilSafeCall(cudaStreamSynchronize(stream));
+    checkCudaErrors(cudaStreamSynchronize(stream));
   } else {
-    cutilSafeCall(cudaMemsetAsync(resizedPaddedImageF4, 0, hPaddedWidth *
+    checkCudaErrors(cudaMemsetAsync(resizedPaddedImageF4, 0, hPaddedWidth *
       hPaddedHeight * sizeof(float4), stream));
-    cutilSafeCall(cudaStreamSynchronize(stream));
+    checkCudaErrors(cudaStreamSynchronize(stream));
     resizeFastBicubic4<<<hBlockSize, hThreadSize, 0, stream>>>(
       resizedPaddedImageF4, paddedRegisteredImage, rPaddedWidth, rPaddedHeight,
       scale);
-    cutilSafeCall(cudaStreamSynchronize(stream));
+    checkCudaErrors(cudaStreamSynchronize(stream));
   }
-  cutilSafeCall(cudaUnbindTexture(tex));
+  checkCudaErrors(cudaUnbindTexture(tex));
 }
 
 __device__ float4 tex2DFastBicubic(const texture<float4, 2, cudaReadModeElementType> texref, float x, float y)

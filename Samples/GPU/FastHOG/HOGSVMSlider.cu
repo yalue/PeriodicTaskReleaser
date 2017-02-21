@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "cutil.h"
+#include <helper_cuda.h>
+#include <helper_functions.h>
 #include "HOGEngine.h"
 #include "HOGUtils.h"
 #include "HOGSVMSlider.h"
@@ -19,18 +20,18 @@ extern __shared__ float1 allSharedF1[];
 float svmBias;
 
 void DeviceAllocHOGSVMMemory(void) {
-  cutilSafeCall(cudaMallocArray(&svmArray, &channelDescSVM,
+  checkCudaErrors(cudaMallocArray(&svmArray, &channelDescSVM,
     HOG.svmWeightsCount, 1));
 }
 
 void CopyInHOGSVM(void) {
-  cutilSafeCall(cudaMemcpyToArrayAsync(svmArray, 0, 0, HOG.svmWeights,
+  checkCudaErrors(cudaMemcpyToArrayAsync(svmArray, 0, 0, HOG.svmWeights,
     HOG.svmWeightsCount * sizeof(float), cudaMemcpyHostToDevice, stream));
-  cutilSafeCall(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaStreamSynchronize(stream));
 }
 
 void DeviceFreeHOGSVMMemory(void) {
-  cutilSafeCall(cudaFreeArray(svmArray));
+  checkCudaErrors(cudaFreeArray(svmArray));
   svmArray = NULL;
 }
 
@@ -97,9 +98,9 @@ __global__ void linearSVMEvaluation(float1* svmScores, float svmBias,
 }
 
 void ResetSVMScores(float1* svmScores) {
-  cutilSafeCall(cudaMemsetAsync(svmScores, 0, sizeof(float) * scaleCount *
+  checkCudaErrors(cudaMemsetAsync(svmScores, 0, sizeof(float) * scaleCount *
     hNumberOfWindowsX * hNumberOfWindowsY));
-  cutilSafeCall(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaStreamSynchronize(stream));
 }
 
 void LinearSVMEvaluation(float1* svmScores, float1* blockHistograms,
@@ -113,13 +114,13 @@ void LinearSVMEvaluation(float1* svmScores, float1* blockHistograms,
   dim3 blockCount = dim3(rNumberOfWindowsX, rNumberOfWindowsY);
   int alignedBlockDimX = iClosestPowerOfTwo(noHistogramBins * blockSizeX *
     hNumberOfBlockPerWindowX);
-  cutilSafeCall(cudaBindTextureToArray(texSVM, svmArray, channelDescSVM));
+  checkCudaErrors(cudaBindTextureToArray(texSVM, svmArray, channelDescSVM));
   linearSVMEvaluation<<<blockCount, threadCount, noHistogramBins * blockSizeX *
     hNumberOfBlockPerWindowX * sizeof(float1), stream>>>(svmScores, svmBias,
     blockHistograms, noHistogramBins, windowSizeX, windowSizeY, hogBlockCountX,
     hogBlockCountY, cellSizeX, cellSizeY, hNumberOfBlockPerWindowX,
     hNumberOfBlockPerWindowY, blockSizeX, blockSizeY, alignedBlockDimX,
     scaleId, scaleCount, hNumberOfWindowsX, hNumberOfWindowsY, width, height);
-  cutilSafeCall(cudaStreamSynchronize(stream));
-  cutilSafeCall(cudaUnbindTexture(texSVM));
+  checkCudaErrors(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaUnbindTexture(texSVM));
 }

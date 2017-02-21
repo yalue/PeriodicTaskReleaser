@@ -3,13 +3,14 @@
 #include <stdio.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "cutil.h"
+#include <helper_functions.h>
+#include <helper_cuda.h>
 #include "HOGEngine.h"
 #include "HOGUtils.h"
 
 // Short function to synchronize with our global user-defined stream.
 static void sync(void) {
-  cutilSafeCall(cudaStreamSynchronize(stream));
+  checkCudaErrors(cudaStreamSynchronize(stream));
 }
 
 //Round a / b to nearest higher integer value
