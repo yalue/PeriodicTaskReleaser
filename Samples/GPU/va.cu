@@ -57,7 +57,12 @@ void* Initialize(GPUParameters *parameters) {
     printf("Failed allocating thread context: %d\n", (int) e);
     exit(1);
   }
-  cudaSetDevice(0);
+  if (parameters->cuda_device >= 0) {
+    if (cudaSetDevice(0) != cudaSuccess) {
+      printf("Failed setting CUDA device.\n");
+      exit(1);
+    }
+  }
   cudaStreamCreate(&(g->stream));
   g->element_count = parameters->element_count;
   g->vector_bytes = g->element_count * sizeof(float);

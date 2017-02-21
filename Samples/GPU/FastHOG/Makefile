@@ -2,7 +2,7 @@
 .PHONY: all clean
 
 NVCC := nvcc -ccbin g++
-NVCCFLAGS := --cudart shared -g --ptxas-options=-v -arch=sm_53
+NVCCFLAGS := --cudart shared -g --ptxas-options=-v -arch=sm_50
 INCLUDES := -I/usr/local/cuda/samples/common/inc -I.
 
 all: fasthog.a

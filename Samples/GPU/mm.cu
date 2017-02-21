@@ -153,7 +153,12 @@ void* Initialize(GPUParameters *parameters) {
   }
   matrix_size = sqrt(parameters->element_count) * sqrt(
     parameters->element_count);
-  cudaSetDevice(0);
+  if (parameters->cuda_device >= 0) {
+    if (cudaSetDevice(parameters->cuda_device) != cudaSuccess) {
+      printf("Failed setting CUDA device.\n");
+      exit(1);
+    }
+  }
   cudaStreamCreate(&stream);
   return NULL;
 }

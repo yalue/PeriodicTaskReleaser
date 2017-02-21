@@ -17,6 +17,7 @@
 #define DEFAULT_SYNC (2)
 #define DEFAULT_RAND_SLEEP (1)
 #define FIFTEEN_MS_IN_NS (15000000)
+#define DEFAULT_CUDA_DEVICE (-1)
 
 const char *argp_program_version = "v1";
 const char *argp_program_bug_address = "<otternes@cs.unc.edu>";
@@ -31,6 +32,7 @@ static struct argp_option options[] = {
   {"iterations", 'n', "iteration_count", 0, "Specifies the maximum number of iterations of the benchmark program. Defaults to infinity."},
   {"duration", 'd', "experiment_duration", 0, "Specifies the duration the experiment should run in seconds. Defaults to 30 minutes."},
   {"show_blocks", 'b', 0, OPTION_ARG_OPTIONAL, "If provided, the benchmark will emit a list of individual block times during the CopyOut phase."},
+  {"device", 'g', "CUDA device number", 0, "If provided, the benchmark will explicitly try to use the device with the given ID."},
   {0},
 };
 
@@ -41,6 +43,7 @@ struct arguments {
   int show_block_times;
   int sync;
   int randsleep;
+  int cuda_device;
 };
 
 // Returns the current system time in seconds. Exits if an error occurs while
@@ -90,6 +93,12 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   case 'b':
     arguments->show_block_times = 1;
     break;
+  case 'g':
+    arguments->cuda_device = atoi(arg);
+    if (arguments->cuda_device < -1) {
+      return EINVAL;
+    }
+    break;
   default:
     return ARGP_ERR_UNKNOWN;
   }
@@ -112,6 +121,7 @@ int main(int argc, char **argv) {
   arguments.iteration_count = (uint64_t) DEFAULT_ITERATION_COUNT;
   arguments.sync = DEFAULT_SYNC;
   arguments.randsleep = DEFAULT_RAND_SLEEP;
+  arguments.cuda_device = DEFAULT_CUDA_DEVICE;
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
   // Copy the command-line arguments to the parameters to actually pass the
@@ -120,6 +130,7 @@ int main(int argc, char **argv) {
   benchmark_parameters.sync_level = arguments.sync;
   benchmark_parameters.element_count = arguments.data_size;
   benchmark_parameters.show_block_times = arguments.show_block_times;
+  benchmark_parameters.cuda_device = arguments.cuda_device;
 
   // Do initialization and allocation outside of the main loop.
   thread_data = Initialize(&benchmark_parameters);

@@ -16,6 +16,10 @@ typedef struct {
   // If this is nonzero, show individual block times for benchmarks that
   // support it.
   int show_block_times;
+  // If this is positive, it will be passed to cudaSetDevice(). If it is
+  // negative, cudaSetDevice() will not be called, causing the program to fall
+  // back on the default device.
+  int cuda_device;
 } GPUParameters;
 
 // Initializes the benchmark. Returns a pointer to a thread-local data

@@ -139,7 +139,9 @@ void* Initialize(GPUParameters *parameters) {
     fprintf(stderr, "Failed to lock code pages.\n");
     exit(EXIT_FAILURE);
   }
-  //checkCudaErrors(cudaSetDevice(0));
+  if (parameters->cuda_device >= 0) {
+    checkCudaErrors(cudaSetDevice(parameters->cuda_device));
+  }
   checkCudaErrors(cudaStreamCreate(&(g->stream)));
   return NULL;
 }

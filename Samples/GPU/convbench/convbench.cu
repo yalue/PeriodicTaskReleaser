@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <cuda_runtime.h>
 #include <sys/mman.h>
+#include <helper_cuda.h>
+#include <helper_functions.h>
 
-#include "helper_cuda_pure_c.h"
 #include "im2col.h"
 #include "matrixMul.h"
 extern "C" {
@@ -72,14 +73,10 @@ void* Initialize(GPUParameters *parameters) {
     printf("Unknown sync level: %d\n", parameters->sync_level);
     break;
   }
-  if (cudaSetDevice(0) != cudaSuccess) {
-    printf("Unable to set cuda device.\n");
-    exit(1);
+  if (parameters->cuda_device >= 0) {
+    checkCudaErrors(cudaSetDevice(parameters->cuda_device));
   }
-  if (cudaStreamCreate(&stream) != cudaSuccess) {
-    printf("Unable to create cuda stream.\n");
-    exit(1);
-  }
+  checkCudaErrors(cudaStreamCreate(&stream));
   max_image_size = 0;
   // A(M*K)
   max_filter_size = 0;
@@ -132,7 +129,7 @@ void CopyIn(void *thread_data) {
     sizeof(float), cudaMemcpyHostToDevice, stream));
   checkCudaErrors(cudaMemcpyAsync(d_filter, h_filter, max_filter_size *
     sizeof(float), cudaMemcpyHostToDevice, stream));
-  cudaStreamSynchronize(stream);
+  checkCudaErrors(cudaStreamSynchronize(stream));
 }
 
 void Exec(void *thread_data) {
@@ -150,7 +147,7 @@ void Exec(void *thread_data) {
       (int) ((M - 1) / threads.y) + 1);
     matrixMulCUDA<<<grid, threads, 0, stream>>>(d_result, d_filter,
       d_image_col, K, N); // can refer to sample code
-    cudaStreamSynchronize(stream);
+    checkCudaErrors(cudaStreamSynchronize(stream));
   }
 }
 
@@ -183,8 +180,5 @@ void FreeCPU(void *thread_data) {
 void Finish(void *thread_data) {
   cudaStreamSynchronize(stream);
   cudaStreamDestroy(stream);
-  if (cudaDeviceReset() != cudaSuccess) {
-    printf("Failed to reset the device.\n");
-    exit(1);
-  }
+  checkCudaErrors(cudaDeviceReset());
 }

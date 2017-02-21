@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <cuda_runtime.h>
+#include <helper_cuda.h>
+#include <helper_functions.h>
 
 #include "im2col.h"
 
@@ -51,6 +54,6 @@ extern "C" void im2col_gpu(const float* data_im, const int channels,
 					  num_kernels, data_im, height, width, kernel_h, kernel_w, pad_h,
 					  pad_w, stride_h, stride_w, height_col,
 					  width_col, data_col);
-	cudaStreamSynchronize(stream);
+	checkCudaErrors(cudaStreamSynchronize(stream));
 	CUDA_POST_KERNEL_CHECK;
 }

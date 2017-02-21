@@ -40,9 +40,11 @@ void* Initialize(GPUParameters *parameters) {
     printf("Unable to load image file.\n");
     exit(1);
   }
-  if (cudaSetDevice(0) != cudaSuccess) {
-    printf("Unable to set cuda device.\n");
-    exit(1);
+  if (parameters->cuda_device >= 0) {
+    if (cudaSetDevice(parameters->cuda_device) != cudaSuccess) {
+      printf("Unable to set cuda device.\n");
+      exit(1);
+    }
   }
   if (cudaStreamCreate(&stream) != cudaSuccess) {
     printf("Unable to create cuda stream.\n");

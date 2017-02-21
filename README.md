@@ -59,14 +59,3 @@ results/
                 1.csv  : The output of the 1st MM benchmark
                 2.csv  : The output of the 2nd MM benchmark
 ```
-
-Measuring block times
----------------------
-
-To measure block times for the stereo disparity benchmark, modify
-`Samples/Copy/StereoDisparity/sd.cu`. There is a commented-out block of code in
-the `CopyOut` function which can be uncommented to print all recorded block
-times to stdout. The reported times must be divided by 1.0e5 in order to get
-times in seconds. This multiplication is carried out to reduce the number of
-leading zeroes, and therefore log sizes. Recording all blocks generates a large
-amount of data.
