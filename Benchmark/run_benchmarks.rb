@@ -17,7 +17,7 @@ DURATION = 5
 
 # The device on which to run benchmarks, or -1 if no GPU should be explicitly
 # specified (e.g. if MPS is being used)
-CUDA_DEVICE = -1
+CUDA_DEVICE = 1
 
 # Holds information about a single benchmark program
 class Benchmark
@@ -152,10 +152,41 @@ def get_block_time_list(filename)
   to_return
 end
 
+# Takes an array of durations in seconds and converts it to a CDF plot (e.g.
+# [[times], [percentages]]). Input times are expected to be in *seconds*, but
+# output times will be in milliseconds.
+def time_list_to_cdf(durations)
+  return [[], []] if durations.size == 0
+  durations = durations.sort
+  total_count = durations.size.to_f
+  current_min = durations[0]
+  count = 0.0
+  data_list = [durations[0]]
+  ratio_list = [0.0]
+  durations.each do |point|
+    count += 1.0
+    if point > current_min
+      data_list << point
+      ratio_list << count / total_count
+      current_min = point
+    end
+  end
+  data_list << durations[-1]
+  ratio_list << 1.0
+  # Convert times to milliseconds
+  data_list.map! {|v| v * 1000.0}
+  # Convert ratios to percentages
+  ratio_list.map! {|v| v * 100.0}
+  [data_list, ratio_list]
+end
+
 # Reads output.json from disk and parses it.
 def get_output_json()
   return {} if !File.exists?("output.json")
-  File.open("output.json", "rb") {|f| JSON.parse(f.read)}
+  content = File.open("output.json", "rb") {|f| f.read}
+  # In case the file is blank...
+  return {} if content.size < 2
+  JSON.parse(content)
 end
 
 # Takes a hash and saves it to output.json on disk.
@@ -178,6 +209,7 @@ sd_blocks.duration = 10
   if t >= 1
     name = "vs. #{t.to_s} instances"
   end
+  puts "Reading logs..."
   total_times = get_total_time_list(log_file).map{|v| v[1] - v[0]}
   kernel_times = get_kernel_time_list(log_file).map{|v| v[1] - v[0]}
 
@@ -186,10 +218,16 @@ sd_blocks.duration = 10
   puts "Updating output.json..."
   data = get_output_json()
   data["SD total times"] = {} if !data.include?("SD total times")
-  data["SD total times"][name] = total_times
+  data["SD total times"][name] = time_list_to_cdf(total_times)
+  # Add the 4 * isolation total time plot
+  if name == "In isolation"
+    data["SD total times"]["4 * isolation"] = time_list_to_cdf(
+        total_times.map {|v| v * 4})
+  end
   data["SD kernel times"] = {} if !data.include?("SD kernel times")
-  data["SD kernel times"][name] = kernel_times
+  data["SD kernel times"][name] = time_list_to_cdf(kernel_times)
   save_output_json(data)
+  puts "Collecting garbage..."
   data = nil
   total_times = nil
   kernel_times = nil
@@ -204,29 +242,18 @@ end
   if t >= 1
     name = "vs. #{t.to_s} instances"
   end
+  puts "Reading logs..."
   block_times = get_block_time_list(log_file)
   block_times = block_times.map{|k| k.map{|v| v[1] - v[0]}}.flatten
 
   puts "Updating output.json..."
   data = get_output_json()
   data["SD block times"] = {} if !data.include?("SD block times")
-  data["SD block times"][name] = block_times
+  data["SD block times"][name] = time_list_to_cdf(block_times)
   save_output_json(data)
+  puts "Collecting garbage..."
   data = nil
   block_times = nil
   GC.start()
 end
 
-exit 0
-
-# Fasthog in isolation, vs fasthog and SD
-run_scenario([fasthog], false)
-run_scenario([fasthog, fasthog], false)
-run_scenario([fasthog, sd], false)
-
-# Get SD block times. Do this *after* processing the logs from the previous SD
-# run, since this will overwrite the 4 SD instances.
-run_scenario([sd_blocks, sd_blocks, sd_blocks, sd_blocks], true)
-run_scenario([sd_blocks, sd_blocks, sd_blocks], false)
-run_scenario([sd_blocks, sd_blocks], false)
-run_scenario([sd_blocks], false)
