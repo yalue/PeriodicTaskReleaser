@@ -7,5 +7,4 @@ Samples/convbench_*
 *convbench.a
 Benchmark/benchmark_*
 Benchmark/results/
-Benchmark/c/
-Benchmark/zc/
+Benchmark/output.json
